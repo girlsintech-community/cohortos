@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, CheckCircle2, XCircle, Trash2 } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Trash2, Users, Rss, MessagesSquare, Target, Trophy, Flame, Heart } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/admin")({
@@ -27,15 +27,148 @@ function AdminPage() {
         <h1 className="text-3xl font-bold">Admin</h1>
         <p className="text-muted-foreground">Manage challenges and approve submissions.</p>
       </div>
-      <Tabs defaultValue="submissions">
+      <Tabs defaultValue="overview">
         <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="members">Members</TabsTrigger>
           <TabsTrigger value="submissions">Submissions</TabsTrigger>
           <TabsTrigger value="challenges">Challenges</TabsTrigger>
         </TabsList>
+        <TabsContent value="overview" className="mt-4"><OverviewPanel /></TabsContent>
+        <TabsContent value="members" className="mt-4"><MembersPanel /></TabsContent>
         <TabsContent value="submissions" className="mt-4"><SubmissionsPanel /></TabsContent>
         <TabsContent value="challenges" className="mt-4"><ChallengesPanel /></TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+function OverviewPanel() {
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin", "overview"],
+    queryFn: async () => {
+      const heads = { count: "exact" as const, head: true };
+      const [members, onboarded, posts, likes, discussions, replies, challenges, subs, subsPending, subsApproved, xpRow] = await Promise.all([
+        supabase.from("profiles").select("*", heads),
+        supabase.from("profiles").select("*", heads).eq("onboarded", true),
+        supabase.from("posts").select("*", heads),
+        supabase.from("post_likes").select("*", heads),
+        supabase.from("discussions").select("*", heads),
+        supabase.from("discussion_replies").select("*", heads),
+        supabase.from("challenges").select("*", heads),
+        supabase.from("challenge_submissions").select("*", heads),
+        supabase.from("challenge_submissions").select("*", heads).eq("status", "submitted"),
+        supabase.from("challenge_submissions").select("*", heads).eq("status", "approved"),
+        supabase.from("profiles").select("xp"),
+      ]);
+      const totalXp = (xpRow.data ?? []).reduce((s: number, r: any) => s + (r.xp ?? 0), 0);
+      return {
+        members: members.count ?? 0,
+        onboarded: onboarded.count ?? 0,
+        posts: posts.count ?? 0,
+        likes: likes.count ?? 0,
+        discussions: discussions.count ?? 0,
+        replies: replies.count ?? 0,
+        challenges: challenges.count ?? 0,
+        subs: subs.count ?? 0,
+        subsPending: subsPending.count ?? 0,
+        subsApproved: subsApproved.count ?? 0,
+        totalXp,
+      };
+    },
+  });
+
+  if (isLoading || !data) return <div className="grid place-items-center py-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
+
+  const stats = [
+    { icon: Users, label: "Members", value: data.members, sub: `${data.onboarded} onboarded` },
+    { icon: Rss, label: "Posts", value: data.posts, sub: `${data.likes} likes` },
+    { icon: MessagesSquare, label: "Discussions", value: data.discussions, sub: `${data.replies} replies` },
+    { icon: Target, label: "Challenges", value: data.challenges, sub: `${data.subs} submissions` },
+    { icon: CheckCircle2, label: "Approved", value: data.subsApproved, sub: `${data.subsPending} pending` },
+    { icon: Flame, label: "Total XP", value: data.totalXp, sub: "awarded across cohort" },
+  ];
+
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {stats.map((s) => (
+        <Card key={s.label}>
+          <CardContent className="p-5 flex items-start justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">{s.label}</p>
+              <p className="mt-1 text-3xl font-bold">{s.value.toLocaleString()}</p>
+              <p className="text-xs text-muted-foreground mt-1">{s.sub}</p>
+            </div>
+            <div className="grid h-10 w-10 place-items-center rounded-lg bg-primary/10 text-primary"><s.icon className="h-5 w-5" /></div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function MembersPanel() {
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin", "members"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, display_name, avatar_url, college, branch, graduation_year, city, state, xp, level, streak, onboarded, created_at, linkedin_url, github_url")
+        .order("xp", { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  if (isLoading) return <div className="grid place-items-center py-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
+  if (!data?.length) return <p className="text-sm text-muted-foreground">No members yet.</p>;
+
+  return (
+    <Card>
+      <CardContent className="p-0 overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="border-b bg-muted/40 text-left">
+            <tr>
+              <th className="p-3 font-medium">Member</th>
+              <th className="p-3 font-medium">College</th>
+              <th className="p-3 font-medium">Location</th>
+              <th className="p-3 font-medium">Year</th>
+              <th className="p-3 font-medium text-right">XP</th>
+              <th className="p-3 font-medium text-right">Lvl</th>
+              <th className="p-3 font-medium text-right">🔥</th>
+              <th className="p-3 font-medium">Status</th>
+              <th className="p-3 font-medium">Links</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((m) => (
+              <tr key={m.id} className="border-b hover:bg-muted/30">
+                <td className="p-3">
+                  <p className="font-medium">{m.display_name ?? "—"}</p>
+                  <p className="text-xs text-muted-foreground">Joined {new Date(m.created_at).toLocaleDateString()}</p>
+                </td>
+                <td className="p-3">{m.college ?? "—"}<div className="text-xs text-muted-foreground">{m.branch ?? ""}</div></td>
+                <td className="p-3">{[m.city, m.state].filter(Boolean).join(", ") || "—"}</td>
+                <td className="p-3">{m.graduation_year ?? "—"}</td>
+                <td className="p-3 text-right font-semibold">{(m.xp ?? 0).toLocaleString()}</td>
+                <td className="p-3 text-right">{m.level ?? 1}</td>
+                <td className="p-3 text-right">{m.streak ?? 0}</td>
+                <td className="p-3">
+                  <Badge variant={m.onboarded ? "default" : "outline"} className={m.onboarded ? "bg-success text-success-foreground" : ""}>
+                    {m.onboarded ? "Active" : "Pending"}
+                  </Badge>
+                </td>
+                <td className="p-3 text-xs space-x-2">
+                  {m.linkedin_url && <a className="text-primary hover:underline" href={m.linkedin_url} target="_blank" rel="noreferrer">LI</a>}
+                  {m.github_url && <a className="text-primary hover:underline" href={m.github_url} target="_blank" rel="noreferrer">GH</a>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </CardContent>
+    </Card>
   );
 }
 
