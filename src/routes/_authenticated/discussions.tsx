@@ -40,7 +40,7 @@ function DiscussionsPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("discussions")
-        .select("id, author_id, title, body, tag, created_at, profiles!discussions_author_id_fkey(display_name, avatar_url), discussion_replies(count)")
+        .select("id, author_id, title, body, tag, created_at, profiles!discussions_author_profile_fkey(display_name, avatar_url), discussion_replies(count)")
         .order("created_at", { ascending: false })
         .limit(50);
       if (error) throw error;
@@ -145,7 +145,7 @@ function RepliesPanel({ discussionId }: { discussionId: string }) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("discussion_replies")
-        .select("id, author_id, body, created_at, profiles!discussion_replies_author_id_fkey(display_name, avatar_url)")
+        .select("id, author_id, body, created_at, profiles!discussion_replies_author_profile_fkey(display_name, avatar_url)")
         .eq("discussion_id", discussionId)
         .order("created_at", { ascending: true });
       if (error) throw error;
