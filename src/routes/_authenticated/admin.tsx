@@ -113,7 +113,7 @@ function MembersPanel() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, display_name, avatar_url, college, branch, graduation_year, city, state, xp, level, streak, onboarded, created_at, linkedin, github")
+        .select("id, display_name, avatar_url, college, branch, graduation_year, city, state, xp, level, streak, onboarded, created_at, linkedin_url, github_url")
         .order("xp", { ascending: false })
         .limit(500);
       if (error) throw error;
@@ -160,8 +160,8 @@ function MembersPanel() {
                   </Badge>
                 </td>
                 <td className="p-3 text-xs space-x-2">
-                  {m.linkedin && <a className="text-primary hover:underline" href={m.linkedin} target="_blank" rel="noreferrer">LI</a>}
-                  {m.github && <a className="text-primary hover:underline" href={m.github} target="_blank" rel="noreferrer">GH</a>}
+                  {m.linkedin_url && <a className="text-primary hover:underline" href={m.linkedin_url} target="_blank" rel="noreferrer">LI</a>}
+                  {m.github_url && <a className="text-primary hover:underline" href={m.github_url} target="_blank" rel="noreferrer">GH</a>}
                 </td>
               </tr>
             ))}
