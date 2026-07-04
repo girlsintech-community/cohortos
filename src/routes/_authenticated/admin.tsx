@@ -46,7 +46,7 @@ function SubmissionsPanel() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("challenge_submissions")
-        .select("id, status, solution_url, notes, created_at, user_id, challenges(title, xp_reward), profiles!challenge_submissions_user_id_fkey(display_name)")
+        .select("id, status, solution_url, notes, created_at, user_id, challenges(title, xp_reward), profiles!challenge_submissions_user_profile_fkey(display_name)")
         .order("created_at", { ascending: false })
         .limit(100);
       if (error) throw error;
