@@ -136,7 +136,6 @@ function FeedPage() {
                         <p className="font-semibold text-sm">{p.profiles?.display_name ?? "Someone"}</p>
                         <p className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(p.created_at), { addSuffix: true })}</p>
                       </div>
-                      <p className="mt-1 text-sm whitespace-pre-wrap break-words">{p.content}</p>
                       {editingId === p.id ? (
                         <div className="mt-2 space-y-2">
                           <Textarea rows={3} value={editContent} onChange={(e) => setEditContent(e.target.value)} maxLength={2000} />
