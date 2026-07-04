@@ -154,36 +154,36 @@ function Onboarding() {
         <CardHeader><CardTitle>Basics</CardTitle></CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <Field label="Display name*"><Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={60} /></Field>
-          <Field label="Short bio" className="sm:col-span-2"><Textarea rows={3} value={bio} onChange={(e) => setBio(e.target.value)} maxLength={280} placeholder="Aspiring SWE • love DP problems • coffee addict" /></Field>
+          <Field label="Short bio" className="sm:col-span-2"><Textarea rows={3} value={bio} onChange={(e) => setBio(e.target.value)} maxLength={280} /></Field>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader><CardTitle>Education</CardTitle></CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
-          <Field label="College / University*" className="sm:col-span-2"><Input value={college} onChange={(e) => setCollege(e.target.value)} maxLength={120} placeholder="IIIT Delhi" /></Field>
-          <Field label="Course*"><Input value={course} onChange={(e) => setCourse(e.target.value)} maxLength={60} placeholder="B.Tech" /></Field>
-          <Field label="Branch*"><Input value={branch} onChange={(e) => setBranch(e.target.value)} maxLength={60} placeholder="CSE" /></Field>
-          <Field label="Graduation year*"><Input type="number" min={2020} max={2035} value={gradYear} onChange={(e) => setGradYear(e.target.value)} placeholder="2027" /></Field>
+          <Field label="College / University*" className="sm:col-span-2"><Input value={college} onChange={(e) => setCollege(e.target.value)} maxLength={120} /></Field>
+          <Field label="Course*"><Input value={course} onChange={(e) => setCourse(e.target.value)} maxLength={60} /></Field>
+          <Field label="Branch*"><Input value={branch} onChange={(e) => setBranch(e.target.value)} maxLength={60} /></Field>
+          <Field label="Graduation year*"><Input type="number" min={2020} max={2035} value={gradYear} onChange={(e) => setGradYear(e.target.value)} /></Field>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader><CardTitle>Location</CardTitle></CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
-          <Field label="City"><Input value={city} onChange={(e) => setCity(e.target.value)} maxLength={60} placeholder="Bengaluru" /></Field>
-          <Field label="State"><Input value={stateVal} onChange={(e) => setStateVal(e.target.value)} maxLength={60} placeholder="Karnataka" /></Field>
+          <Field label="City"><Input value={city} onChange={(e) => setCity(e.target.value)} maxLength={60} /></Field>
+          <Field label="State"><Input value={stateVal} onChange={(e) => setStateVal(e.target.value)} maxLength={60} /></Field>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader><CardTitle>Links & Skills</CardTitle></CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
-          <Field label="LinkedIn URL"><Input value={linkedin} onChange={(e) => setLinkedin(e.target.value)} placeholder="https://linkedin.com/in/…" /></Field>
-          <Field label="GitHub URL"><Input value={github} onChange={(e) => setGithub(e.target.value)} placeholder="https://github.com/…" /></Field>
+          <Field label="LinkedIn URL"><Input value={linkedin} onChange={(e) => setLinkedin(e.target.value)} /></Field>
+          <Field label="GitHub URL"><Input value={github} onChange={(e) => setGithub(e.target.value)} /></Field>
           <Field label="Skills" className="sm:col-span-2">
             <div className="flex gap-2">
-              <Input value={skillInput} onChange={(e) => setSkillInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSkill(); } }} placeholder="Python, DSA, React…" />
+              <Input value={skillInput} onChange={(e) => setSkillInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSkill(); } }} />
               <Button type="button" variant="secondary" onClick={addSkill}>Add</Button>
             </div>
             {skills.length > 0 && (

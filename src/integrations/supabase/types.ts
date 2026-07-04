@@ -50,6 +50,13 @@ export type Database = {
             referencedRelation: "challenges"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "challenge_submissions_user_profile_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       challenges: {
@@ -109,6 +116,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "discussion_replies_author_profile_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "discussion_replies_discussion_id_fkey"
             columns: ["discussion_id"]
             isOneToOne: false
@@ -145,7 +159,15 @@ export type Database = {
           title?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "discussions_author_profile_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       post_likes: {
         Row: {
@@ -195,7 +217,15 @@ export type Database = {
           id?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "posts_author_profile_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {

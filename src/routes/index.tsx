@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Trophy, Flame, MessageSquare, Target, Zap } from "lucide-react";
+import { Trophy, Flame, MessageSquare, Target, Zap, Heart, ArrowRight } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   component: Landing,
@@ -8,34 +8,50 @@ export const Route = createFileRoute("/")({
 
 function Landing() {
   return (
-    <div className="min-h-screen bg-background">
-      <header className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5">
-        <div className="flex items-center gap-2">
-          <div className="grid h-9 w-9 place-items-center rounded-xl text-primary-foreground" style={{ background: "var(--gradient-primary)" }}>
-            <Sparkles className="h-5 w-5" />
-          </div>
-          <span className="text-lg font-bold">Cohort OS</span>
-        </div>
+    <div className="min-h-screen bg-background overflow-x-hidden">
+      <header className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 sm:px-6 py-5">
+        <span className="min-w-0 truncate text-base sm:text-lg font-extrabold tracking-tight bg-clip-text text-transparent" style={{ backgroundImage: "var(--gradient-primary)" }}>
+          Girls Leading Tech
+        </span>
         <Link to="/auth"><Button size="sm">Sign in</Button></Link>
       </header>
 
-      <section className="mx-auto max-w-6xl px-4 pt-12 pb-20 text-center">
+      <section className="relative mx-auto max-w-6xl px-4 sm:px-6 pt-10 sm:pt-16 pb-20 text-center">
+        <div className="pointer-events-none absolute inset-0 -z-10 opacity-40 [mask-image:radial-gradient(closest-side,black,transparent)]" style={{ background: "radial-gradient(60% 50% at 50% 20%, var(--primary) 0%, transparent 60%)" }} />
         <div className="inline-flex items-center gap-2 rounded-full border bg-card px-3 py-1 text-xs font-medium text-muted-foreground shadow-sm">
-          <span className="h-2 w-2 rounded-full bg-success" /> Girls Leading Tech · DSA Cohort
+          <Heart className="h-3.5 w-3.5 text-primary fill-current" /> A cohort by women, for women in tech
         </div>
-        <h1 className="mt-6 text-4xl sm:text-6xl font-bold tracking-tight max-w-3xl mx-auto">
-          Learn, contribute, compete — <span className="text-primary">together</span>.
+        <h1 className="mt-6 text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight max-w-4xl mx-auto leading-[1.05]">
+          Girls Leading Tech{" "}
+          <span className="bg-clip-text text-transparent" style={{ backgroundImage: "var(--gradient-primary)" }}>DSA Cohort</span>
         </h1>
-        <p className="mt-5 text-lg text-muted-foreground max-w-xl mx-auto">
-          The home base for our 5-week DSA cohort. Earn XP, climb leaderboards, and ship every day alongside 120+ mentees and 25 mentors.
+        <p className="mt-5 text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto px-2">
+          A 5-week gamified home base to level up your Data Structures & Algorithms. Earn XP, climb leaderboards, and grow together with your cohort sisters.
         </p>
-        <div className="mt-8 flex justify-center gap-3">
-          <Link to="/auth"><Button size="lg" className="text-base px-6">Get started</Button></Link>
-          <a href="#features"><Button size="lg" variant="outline" className="text-base px-6">Learn more</Button></a>
+        <div className="mt-8 flex flex-col sm:flex-row justify-center gap-3 px-4 sm:px-0">
+          <Link to="/auth"><Button size="lg" className="w-full sm:w-auto text-base px-8">Join the cohort <ArrowRight className="ml-1.5 h-4 w-4" /></Button></Link>
+          <a href="#features"><Button size="lg" variant="outline" className="w-full sm:w-auto text-base px-8">Explore features</Button></a>
+        </div>
+
+        <div className="mt-14 grid grid-cols-3 gap-3 sm:gap-6 max-w-2xl mx-auto">
+          {[
+            { n: "120+", l: "Mentees" },
+            { n: "25", l: "Mentors" },
+            { n: "5 wk", l: "Cohort" },
+          ].map((s) => (
+            <div key={s.l} className="rounded-2xl border bg-card p-4 sm:p-6" style={{ boxShadow: "var(--shadow-card)" }}>
+              <div className="text-2xl sm:text-3xl font-extrabold bg-clip-text text-transparent" style={{ backgroundImage: "var(--gradient-primary)" }}>{s.n}</div>
+              <div className="text-xs sm:text-sm text-muted-foreground">{s.l}</div>
+            </div>
+          ))}
         </div>
       </section>
 
-      <section id="features" className="mx-auto max-w-6xl px-4 pb-24">
+      <section id="features" className="mx-auto max-w-6xl px-4 sm:px-6 pb-24">
+        <div className="text-center mb-10">
+          <h2 className="text-2xl sm:text-3xl font-bold">Everything you need to ship every day</h2>
+          <p className="text-muted-foreground mt-2">Built specifically for our cohort's journey.</p>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[
             { icon: Zap, title: "XP & Levels", desc: "Every post, comment, and challenge earns XP toward your next level." },
@@ -43,9 +59,9 @@ function Landing() {
             { icon: Trophy, title: "Leaderboards", desc: "Weekly, overall, helpful, challenge, and streak boards to compete on." },
             { icon: MessageSquare, title: "Discussions", desc: "Threaded discussions by topic. Best answers get accepted and rewarded." },
             { icon: Target, title: "Challenges", desc: "Mentors post them, you solve them, XP + badges land in your profile." },
-            { icon: Sparkles, title: "Badges", desc: "Unlock badges from First Post to Weekly Champion as you contribute." },
+            { icon: Heart, title: "Sisterhood", desc: "A safe, supportive space to ask, share, and celebrate wins together." },
           ].map((f) => (
-            <div key={f.title} className="rounded-xl border bg-card p-6" style={{ boxShadow: "var(--shadow-card)" }}>
+            <div key={f.title} className="rounded-2xl border bg-card p-6 transition hover:-translate-y-0.5" style={{ boxShadow: "var(--shadow-card)" }}>
               <div className="grid h-10 w-10 place-items-center rounded-lg bg-primary/10 text-primary">
                 <f.icon className="h-5 w-5" />
               </div>
@@ -54,7 +70,18 @@ function Landing() {
             </div>
           ))}
         </div>
+
+        <div className="mt-16 rounded-3xl p-8 sm:p-12 text-center text-primary-foreground" style={{ background: "var(--gradient-primary)" }}>
+          <h3 className="text-2xl sm:text-3xl font-extrabold">Your seat is waiting.</h3>
+          <p className="mt-2 text-primary-foreground/90 max-w-xl mx-auto">Sign in to unlock your dashboard, streaks, and this week's challenges.</p>
+          <Link to="/auth" className="inline-block mt-6">
+            <Button size="lg" variant="secondary" className="text-base px-8">Get started</Button>
+          </Link>
+        </div>
       </section>
+      <footer className="border-t py-6 text-center text-xs text-muted-foreground">
+        © {new Date().getFullYear()} Girls Leading Tech · DSA Cohort
+      </footer>
     </div>
   );
 }

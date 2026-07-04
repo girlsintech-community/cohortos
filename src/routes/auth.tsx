@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Sparkles, Loader2 } from "lucide-react";
+import { Loader2, Eye, EyeOff } from "lucide-react";
 
 export const Route = createFileRoute("/auth")({
   component: AuthPage,
@@ -32,6 +32,7 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -71,12 +72,17 @@ function AuthPage() {
       email,
       password,
       options: {
-        emailRedirectTo: window.location.origin,
+        emailRedirectTo: `${window.location.origin}/auth`,
         data: { display_name: displayName || email.split("@")[0] },
       },
     });
     setBusy(false);
     if (error) return toast.error("Sign up failed", { description: error.message });
+    const { data: sess } = await supabase.auth.getSession();
+    if (!sess.session) {
+      toast.success("Check your email to confirm your account.");
+      return;
+    }
     toast.success("Account created — welcome to the cohort!");
     navigate({ to: "/dashboard", replace: true });
   }
@@ -92,8 +98,8 @@ function AuthPage() {
   return (
     <div className="grid min-h-screen lg:grid-cols-2 bg-background">
       <div className="hidden lg:flex flex-col justify-between p-12 text-primary-foreground" style={{ background: "var(--gradient-primary)" }}>
-        <Link to="/" className="flex items-center gap-2 text-lg font-bold">
-          <Sparkles className="h-6 w-6" /> Cohort OS
+        <Link to="/" className="text-lg font-bold">
+          Girls Leading Tech · Cohort OS
         </Link>
         <div className="space-y-6">
           <h1 className="text-4xl font-bold leading-tight">Learn, contribute, compete — together.</h1>
@@ -118,9 +124,7 @@ function AuthPage() {
       <div className="flex items-center justify-center p-6">
         <Card className="w-full max-w-md border-border/60 shadow-lg">
           <CardHeader className="space-y-2">
-            <div className="lg:hidden flex items-center gap-2 text-primary font-bold">
-              <Sparkles className="h-5 w-5" /> Cohort OS
-            </div>
+            <div className="lg:hidden text-primary font-bold">Girls Leading Tech · Cohort OS</div>
             <CardTitle className="text-2xl">Welcome</CardTitle>
             <CardDescription>Sign in to join your cohort dashboard.</CardDescription>
           </CardHeader>
@@ -148,7 +152,12 @@ function AuthPage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="si-pw">Password</Label>
-                    <Input id="si-pw" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+                    <div className="relative">
+                      <Input id="si-pw" type={showPassword ? "text" : "password"} required value={password} onChange={(e) => setPassword(e.target.value)} className="pr-10" />
+                      <button type="button" onClick={() => setShowPassword((v) => !v)} className="absolute inset-y-0 right-2 grid place-items-center text-muted-foreground hover:text-foreground" aria-label={showPassword ? "Hide password" : "Show password"}>
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
                   </div>
                   <Button type="submit" className="w-full" disabled={busy}>
                     {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Sign in
@@ -159,7 +168,7 @@ function AuthPage() {
                 <form onSubmit={handleSignUp} className="space-y-3 pt-3">
                   <div className="space-y-2">
                     <Label htmlFor="su-name">Display name</Label>
-                    <Input id="su-name" required value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Priya S." />
+                    <Input id="su-name" required value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="su-email">Email</Label>
@@ -167,7 +176,12 @@ function AuthPage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="su-pw">Password</Label>
-                    <Input id="su-pw" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} />
+                    <div className="relative">
+                      <Input id="su-pw" type={showPassword ? "text" : "password"} required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} className="pr-10" />
+                      <button type="button" onClick={() => setShowPassword((v) => !v)} className="absolute inset-y-0 right-2 grid place-items-center text-muted-foreground hover:text-foreground" aria-label={showPassword ? "Hide password" : "Show password"}>
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
                   </div>
                   <Button type="submit" className="w-full" disabled={busy}>
                     {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Create account

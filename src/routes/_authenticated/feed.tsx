@@ -33,7 +33,7 @@ function FeedPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("posts")
-        .select("id, author_id, content, created_at, profiles!posts_author_id_fkey(display_name, avatar_url), post_likes(user_id)")
+        .select("id, author_id, content, created_at, profiles!posts_author_profile_fkey(display_name, avatar_url), post_likes(user_id)")
         .order("created_at", { ascending: false })
         .limit(50);
       if (error) throw error;
