@@ -14,15 +14,208 @@ export type Database = {
   }
   public: {
     Tables: {
+      challenge_submissions: {
+        Row: {
+          challenge_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          solution_url: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          challenge_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          solution_url?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          challenge_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          solution_url?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenge_submissions_challenge_id_fkey"
+            columns: ["challenge_id"]
+            isOneToOne: false
+            referencedRelation: "challenges"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      challenges: {
+        Row: {
+          created_at: string
+          description: string
+          difficulty: string
+          id: string
+          is_active: boolean
+          link: string | null
+          title: string
+          xp_reward: number
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          difficulty: string
+          id?: string
+          is_active?: boolean
+          link?: string | null
+          title: string
+          xp_reward?: number
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          difficulty?: string
+          id?: string
+          is_active?: boolean
+          link?: string | null
+          title?: string
+          xp_reward?: number
+        }
+        Relationships: []
+      }
+      discussion_replies: {
+        Row: {
+          author_id: string
+          body: string
+          created_at: string
+          discussion_id: string
+          id: string
+        }
+        Insert: {
+          author_id: string
+          body: string
+          created_at?: string
+          discussion_id: string
+          id?: string
+        }
+        Update: {
+          author_id?: string
+          body?: string
+          created_at?: string
+          discussion_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "discussion_replies_discussion_id_fkey"
+            columns: ["discussion_id"]
+            isOneToOne: false
+            referencedRelation: "discussions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      discussions: {
+        Row: {
+          author_id: string
+          body: string
+          created_at: string
+          id: string
+          tag: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          author_id: string
+          body: string
+          created_at?: string
+          id?: string
+          tag?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string
+          body?: string
+          created_at?: string
+          id?: string
+          tag?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      post_likes: {
+        Row: {
+          created_at: string
+          post_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          post_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          post_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_likes_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      posts: {
+        Row: {
+          author_id: string
+          content: string
+          created_at: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          author_id: string
+          content: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
           bio: string | null
+          branch: string | null
+          city: string | null
+          college: string | null
+          course: string | null
           created_at: string
           display_name: string
+          github_url: string | null
+          graduation_year: number | null
           id: string
           last_active_date: string | null
           level: number
+          linkedin_url: string | null
+          onboarded: boolean
+          skills: string[]
+          state: string | null
           streak: number
           updated_at: string
           xp: number
@@ -30,11 +223,21 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           bio?: string | null
+          branch?: string | null
+          city?: string | null
+          college?: string | null
+          course?: string | null
           created_at?: string
           display_name: string
+          github_url?: string | null
+          graduation_year?: number | null
           id: string
           last_active_date?: string | null
           level?: number
+          linkedin_url?: string | null
+          onboarded?: boolean
+          skills?: string[]
+          state?: string | null
           streak?: number
           updated_at?: string
           xp?: number
@@ -42,11 +245,21 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           bio?: string | null
+          branch?: string | null
+          city?: string | null
+          college?: string | null
+          course?: string | null
           created_at?: string
           display_name?: string
+          github_url?: string | null
+          graduation_year?: number | null
           id?: string
           last_active_date?: string | null
           level?: number
+          linkedin_url?: string | null
+          onboarded?: boolean
+          skills?: string[]
+          state?: string | null
           streak?: number
           updated_at?: string
           xp?: number
@@ -106,6 +319,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      approve_submission: {
+        Args: { _submission_id: string }
+        Returns: undefined
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
