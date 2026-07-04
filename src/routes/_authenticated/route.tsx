@@ -1,15 +1,28 @@
 import { createFileRoute, Outlet, redirect, Link, useRouter, useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { Home, User, LogOut, Sparkles } from "lucide-react";
+import { Home, User, LogOut, Sparkles, Rss, MessagesSquare, Target, Trophy, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQueryClient } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
-  beforeLoad: async () => {
+  beforeLoad: async ({ location }) => {
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) throw redirect({ to: "/auth" });
-    return { user: data.user };
+    const user = data.user;
+    // Onboarding gate: force new users to fill their profile
+    const { data: p } = await supabase.from("profiles").select("onboarded").eq("id", user.id).maybeSingle();
+    const onboarded = p?.onboarded === true;
+    if (!onboarded && location.pathname !== "/onboarding") {
+      throw redirect({ to: "/onboarding" });
+    }
+    if (onboarded && location.pathname === "/onboarding") {
+      throw redirect({ to: "/dashboard" });
+    }
+    // Load role for admin nav
+    const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", user.id);
+    const isAdmin = (roles ?? []).some((r) => r.role === "admin");
+    return { user, isAdmin, onboarded };
   },
   component: AuthedLayout,
 });
@@ -18,6 +31,7 @@ function AuthedLayout() {
   const router = useRouter();
   const qc = useQueryClient();
   const path = useRouterState({ select: (s) => s.location.pathname });
+  const { isAdmin, onboarded } = Route.useRouteContext();
 
   async function signOut() {
     await qc.cancelQueries();
@@ -26,10 +40,15 @@ function AuthedLayout() {
     router.navigate({ to: "/auth", replace: true });
   }
 
-  const nav = [
+  const nav = onboarded ? [
     { to: "/dashboard", label: "Dashboard", icon: Home },
+    { to: "/feed", label: "Feed", icon: Rss },
+    { to: "/discussions", label: "Discussions", icon: MessagesSquare },
+    { to: "/challenges", label: "Challenges", icon: Target },
+    { to: "/leaderboard", label: "Leaderboard", icon: Trophy },
     { to: "/profile", label: "Profile", icon: User },
-  ];
+    ...(isAdmin ? [{ to: "/admin", label: "Admin", icon: Shield }] : []),
+  ] : [];
 
   return (
     <div className="min-h-screen bg-background">
@@ -41,19 +60,19 @@ function AuthedLayout() {
             </div>
             <span className="text-lg font-bold tracking-tight">Cohort OS</span>
           </Link>
-          <nav className="flex items-center gap-1">
+          <nav className="flex items-center gap-1 overflow-x-auto">
             {nav.map((n) => {
               const active = path === n.to;
               return (
                 <Link
                   key={n.to}
                   to={n.to}
-                  className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                  className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition whitespace-nowrap ${
                     active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted"
                   }`}
                 >
                   <n.icon className="h-4 w-4" />
-                  <span className="hidden sm:inline">{n.label}</span>
+                  <span className="hidden md:inline">{n.label}</span>
                 </Link>
               );
             })}
