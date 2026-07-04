@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Heart, MessageSquare, Loader2, Trash2 } from "lucide-react";
+import { Heart, Loader2, Trash2, Pencil, X, Check } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 
@@ -27,6 +27,8 @@ function FeedPage() {
   const { user } = Route.useRouteContext();
   const qc = useQueryClient();
   const [content, setContent] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState("");
 
   const { data: posts, isLoading } = useQuery({
     queryKey: ["posts"],
@@ -76,6 +78,22 @@ function FeedPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["posts"] }),
   });
 
+  const update = useMutation({
+    mutationFn: async ({ id, content }: { id: string; content: string }) => {
+      const text = content.trim();
+      if (!text) throw new Error("Post can't be empty");
+      if (text.length > 2000) throw new Error("Too long (max 2000)");
+      const { error } = await supabase.from("posts").update({ content: text }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Updated");
+      setEditingId(null);
+      qc.invalidateQueries({ queryKey: ["posts"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div>
@@ -119,12 +137,30 @@ function FeedPage() {
                         <p className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(p.created_at), { addSuffix: true })}</p>
                       </div>
                       <p className="mt-1 text-sm whitespace-pre-wrap break-words">{p.content}</p>
+                      {editingId === p.id ? (
+                        <div className="mt-2 space-y-2">
+                          <Textarea rows={3} value={editContent} onChange={(e) => setEditContent(e.target.value)} maxLength={2000} />
+                          <div className="flex gap-2">
+                            <Button size="sm" onClick={() => update.mutate({ id: p.id, content: editContent })} disabled={update.isPending}>
+                              <Check className="h-3.5 w-3.5 mr-1" /> Save
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>
+                              <X className="h-3.5 w-3.5 mr-1" /> Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="mt-1 text-sm whitespace-pre-wrap break-words">{p.content}</p>
+                      )}
                       <div className="flex items-center gap-4 mt-3">
                         <button onClick={() => toggleLike.mutate({ postId: p.id, liked })} className={`inline-flex items-center gap-1.5 text-xs ${liked ? "text-primary" : "text-muted-foreground"} hover:text-primary`}>
                           <Heart className={`h-4 w-4 ${liked ? "fill-current" : ""}`} /> {p.post_likes.length}
                         </button>
-                        {p.author_id === user.id && (
-                          <button onClick={() => remove.mutate(p.id)} className="text-xs text-muted-foreground hover:text-destructive inline-flex items-center gap-1"><Trash2 className="h-3.5 w-3.5" /> Delete</button>
+                        {p.author_id === user.id && editingId !== p.id && (
+                          <>
+                            <button onClick={() => { setEditingId(p.id); setEditContent(p.content); }} className="text-xs text-muted-foreground hover:text-primary inline-flex items-center gap-1"><Pencil className="h-3.5 w-3.5" /> Edit</button>
+                            <button onClick={() => remove.mutate(p.id)} className="text-xs text-muted-foreground hover:text-destructive inline-flex items-center gap-1"><Trash2 className="h-3.5 w-3.5" /> Delete</button>
+                          </>
                         )}
                       </div>
                     </div>
