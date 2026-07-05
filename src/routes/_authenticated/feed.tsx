@@ -55,20 +55,6 @@ function FeedPage() {
     },
   });
 
-  const commentsFor = (postId: string) => useQuery({
-    queryKey: ["comments", postId],
-    enabled: !!openComments[postId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("post_comments")
-        .select("id, post_id, author_id, content, created_at, profiles!post_comments_author_profile_fkey(display_name, avatar_url)")
-        .eq("post_id", postId)
-        .order("created_at", { ascending: true });
-      if (error) throw error;
-      return data as unknown as Comment[];
-    },
-  });
-
   const addComment = useMutation({
     mutationFn: async ({ postId, content }: { postId: string; content: string }) => {
       const text = content.trim();
@@ -83,17 +69,6 @@ function FeedPage() {
       qc.invalidateQueries({ queryKey: ["posts"] });
     },
     onError: (e: Error) => toast.error(e.message),
-  });
-
-  const deleteComment = useMutation({
-    mutationFn: async ({ id }: { id: string; postId: string }) => {
-      const { error } = await supabase.from("post_comments").delete().eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: (_d, vars) => {
-      qc.invalidateQueries({ queryKey: ["comments", vars.postId] });
-      qc.invalidateQueries({ queryKey: ["posts"] });
-    },
   });
 
   const create = useMutation({
@@ -208,6 +183,9 @@ function FeedPage() {
                         <button onClick={() => toggleLike.mutate({ postId: p.id, liked })} className={`inline-flex items-center gap-1.5 text-xs ${liked ? "text-primary" : "text-muted-foreground"} hover:text-primary`}>
                           <Heart className={`h-4 w-4 ${liked ? "fill-current" : ""}`} /> {p.post_likes.length}
                         </button>
+                        <button onClick={() => setOpenComments((s) => ({ ...s, [p.id]: !s[p.id] }))} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary">
+                          <MessageCircle className="h-4 w-4" /> {p.post_comments?.length ?? 0}
+                        </button>
                         {p.author_id === user.id && editingId !== p.id && (
                           <>
                             <button onClick={() => { setEditingId(p.id); setEditContent(p.content); }} className="text-xs text-muted-foreground hover:text-primary inline-flex items-center gap-1"><Pencil className="h-3.5 w-3.5" /> Edit</button>
@@ -215,6 +193,16 @@ function FeedPage() {
                           </>
                         )}
                       </div>
+                      {openComments[p.id] && (
+                        <CommentsThread
+                          postId={p.id}
+                          currentUserId={user.id}
+                          draft={commentDrafts[p.id] ?? ""}
+                          onDraft={(v) => setCommentDrafts((s) => ({ ...s, [p.id]: v }))}
+                          onSubmit={() => addComment.mutate({ postId: p.id, content: commentDrafts[p.id] ?? "" })}
+                          submitting={addComment.isPending}
+                        />
+                      )}
                     </div>
                   </div>
                 </CardContent>
