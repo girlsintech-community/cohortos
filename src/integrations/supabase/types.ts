@@ -169,6 +169,45 @@ export type Database = {
           },
         ]
       }
+      post_comments: {
+        Row: {
+          author_id: string
+          content: string
+          created_at: string
+          id: string
+          post_id: string
+        }
+        Insert: {
+          author_id: string
+          content: string
+          created_at?: string
+          id?: string
+          post_id: string
+        }
+        Update: {
+          author_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          post_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_comments_author_profile_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       post_likes: {
         Row: {
           created_at: string
@@ -244,6 +283,7 @@ export type Database = {
           level: number
           linkedin_url: string | null
           onboarded: boolean
+          primary_role: Database["public"]["Enums"]["app_role"] | null
           skills: string[]
           state: string | null
           streak: number
@@ -266,6 +306,7 @@ export type Database = {
           level?: number
           linkedin_url?: string | null
           onboarded?: boolean
+          primary_role?: Database["public"]["Enums"]["app_role"] | null
           skills?: string[]
           state?: string | null
           streak?: number
@@ -288,11 +329,48 @@ export type Database = {
           level?: number
           linkedin_url?: string | null
           onboarded?: boolean
+          primary_role?: Database["public"]["Enums"]["app_role"] | null
           skills?: string[]
           state?: string | null
           streak?: number
           updated_at?: string
           xp?: number
+        }
+        Relationships: []
+      }
+      speed_networking_matches: {
+        Row: {
+          created_at: string
+          id: string
+          user_a: string
+          user_b: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          user_a: string
+          user_b: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          user_a?: string
+          user_b?: string
+        }
+        Relationships: []
+      }
+      speed_networking_queue: {
+        Row: {
+          created_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -353,12 +431,24 @@ export type Database = {
         Args: { _submission_id: string }
         Returns: undefined
       }
+      award_xp: {
+        Args: { _amount: number; _meta?: Json; _type: string; _user: string }
+        Returns: undefined
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
+      }
+      request_speed_match: {
+        Args: never
+        Returns: {
+          match_id: string
+          partner_id: string
+          status: string
+        }[]
       }
     }
     Enums: {
