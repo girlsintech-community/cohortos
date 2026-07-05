@@ -14,6 +14,73 @@ export const Route = createFileRoute("/_authenticated/feed")({
   component: FeedPage,
 });
 
+function CommentsThread({ postId, currentUserId, draft, onDraft, onSubmit, submitting }: {
+  postId: string;
+  currentUserId: string;
+  draft: string;
+  onDraft: (v: string) => void;
+  onSubmit: () => void;
+  submitting: boolean;
+}) {
+  const qc = useQueryClient();
+  const { data, isLoading } = useQuery({
+    queryKey: ["comments", postId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("post_comments")
+        .select("id, post_id, author_id, content, created_at, profiles!post_comments_author_profile_fkey(display_name, avatar_url)")
+        .eq("post_id", postId)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data as unknown as Comment[];
+    },
+  });
+  const del = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("post_comments").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["comments", postId] });
+      qc.invalidateQueries({ queryKey: ["posts"] });
+    },
+  });
+  return (
+    <div className="mt-3 space-y-3 border-t pt-3">
+      {isLoading ? (
+        <div className="text-xs text-muted-foreground">Loading…</div>
+      ) : (data ?? []).length === 0 ? (
+        <p className="text-xs text-muted-foreground">Be the first to reply.</p>
+      ) : (
+        (data ?? []).map((c) => {
+          const ini = (c.profiles?.display_name || "?").slice(0, 2).toUpperCase();
+          return (
+            <div key={c.id} className="flex gap-2">
+              <Avatar className="h-7 w-7"><AvatarImage src={c.profiles?.avatar_url ?? undefined} /><AvatarFallback className="text-[10px] bg-primary/10 text-primary">{ini}</AvatarFallback></Avatar>
+              <div className="flex-1 rounded-lg bg-muted/50 px-3 py-2">
+                <div className="flex items-baseline gap-2">
+                  <p className="text-xs font-semibold">{c.profiles?.display_name ?? "Someone"}</p>
+                  <p className="text-[10px] text-muted-foreground">{formatDistanceToNow(new Date(c.created_at), { addSuffix: true })}</p>
+                </div>
+                <p className="text-sm whitespace-pre-wrap break-words">{c.content}</p>
+                {c.author_id === currentUserId && (
+                  <button onClick={() => del.mutate(c.id)} className="mt-1 text-[10px] text-muted-foreground hover:text-destructive">Delete</button>
+                )}
+              </div>
+            </div>
+          );
+        })
+      )}
+      <div className="flex gap-2">
+        <Textarea rows={1} value={draft} onChange={(e) => onDraft(e.target.value)} maxLength={1000} placeholder="Write a reply…" className="min-h-[40px]" />
+        <Button size="sm" onClick={onSubmit} disabled={submitting || !draft.trim()}>
+          {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 type Post = {
   id: string;
   author_id: string;
