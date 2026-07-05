@@ -6,13 +6,80 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Heart, Loader2, Trash2, Pencil, X, Check } from "lucide-react";
+import { Heart, Loader2, Trash2, Pencil, X, Check, MessageCircle, Send } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 
 export const Route = createFileRoute("/_authenticated/feed")({
   component: FeedPage,
 });
+
+function CommentsThread({ postId, currentUserId, draft, onDraft, onSubmit, submitting }: {
+  postId: string;
+  currentUserId: string;
+  draft: string;
+  onDraft: (v: string) => void;
+  onSubmit: () => void;
+  submitting: boolean;
+}) {
+  const qc = useQueryClient();
+  const { data, isLoading } = useQuery({
+    queryKey: ["comments", postId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("post_comments")
+        .select("id, post_id, author_id, content, created_at, profiles!post_comments_author_profile_fkey(display_name, avatar_url)")
+        .eq("post_id", postId)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data as unknown as Comment[];
+    },
+  });
+  const del = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("post_comments").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["comments", postId] });
+      qc.invalidateQueries({ queryKey: ["posts"] });
+    },
+  });
+  return (
+    <div className="mt-3 space-y-3 border-t pt-3">
+      {isLoading ? (
+        <div className="text-xs text-muted-foreground">Loading…</div>
+      ) : (data ?? []).length === 0 ? (
+        <p className="text-xs text-muted-foreground">Be the first to reply.</p>
+      ) : (
+        (data ?? []).map((c) => {
+          const ini = (c.profiles?.display_name || "?").slice(0, 2).toUpperCase();
+          return (
+            <div key={c.id} className="flex gap-2">
+              <Avatar className="h-7 w-7"><AvatarImage src={c.profiles?.avatar_url ?? undefined} /><AvatarFallback className="text-[10px] bg-primary/10 text-primary">{ini}</AvatarFallback></Avatar>
+              <div className="flex-1 rounded-lg bg-muted/50 px-3 py-2">
+                <div className="flex items-baseline gap-2">
+                  <p className="text-xs font-semibold">{c.profiles?.display_name ?? "Someone"}</p>
+                  <p className="text-[10px] text-muted-foreground">{formatDistanceToNow(new Date(c.created_at), { addSuffix: true })}</p>
+                </div>
+                <p className="text-sm whitespace-pre-wrap break-words">{c.content}</p>
+                {c.author_id === currentUserId && (
+                  <button onClick={() => del.mutate(c.id)} className="mt-1 text-[10px] text-muted-foreground hover:text-destructive">Delete</button>
+                )}
+              </div>
+            </div>
+          );
+        })
+      )}
+      <div className="flex gap-2">
+        <Textarea rows={1} value={draft} onChange={(e) => onDraft(e.target.value)} maxLength={1000} placeholder="Write a reply…" className="min-h-[40px]" />
+        <Button size="sm" onClick={onSubmit} disabled={submitting || !draft.trim()}>
+          {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 type Post = {
   id: string;
@@ -21,6 +88,16 @@ type Post = {
   created_at: string;
   profiles: { display_name: string; avatar_url: string | null } | null;
   post_likes: { user_id: string }[];
+  post_comments: { id: string }[];
+};
+
+type Comment = {
+  id: string;
+  post_id: string;
+  author_id: string;
+  content: string;
+  created_at: string;
+  profiles: { display_name: string; avatar_url: string | null } | null;
 };
 
 function FeedPage() {
@@ -29,18 +106,36 @@ function FeedPage() {
   const [content, setContent] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
+  const [openComments, setOpenComments] = useState<Record<string, boolean>>({});
+  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
 
   const { data: posts, isLoading } = useQuery({
     queryKey: ["posts"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("posts")
-        .select("id, author_id, content, created_at, profiles!posts_author_profile_fkey(display_name, avatar_url), post_likes(user_id)")
+        .select("id, author_id, content, created_at, profiles!posts_author_profile_fkey(display_name, avatar_url), post_likes(user_id), post_comments(id)")
         .order("created_at", { ascending: false })
         .limit(50);
       if (error) throw error;
       return data as unknown as Post[];
     },
+  });
+
+  const addComment = useMutation({
+    mutationFn: async ({ postId, content }: { postId: string; content: string }) => {
+      const text = content.trim();
+      if (!text) throw new Error("Write something");
+      if (text.length > 1000) throw new Error("Max 1000 chars");
+      const { error } = await supabase.from("post_comments").insert({ post_id: postId, author_id: user.id, content: text });
+      if (error) throw error;
+    },
+    onSuccess: (_d, vars) => {
+      setCommentDrafts((s) => ({ ...s, [vars.postId]: "" }));
+      qc.invalidateQueries({ queryKey: ["comments", vars.postId] });
+      qc.invalidateQueries({ queryKey: ["posts"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const create = useMutation({
@@ -155,6 +250,9 @@ function FeedPage() {
                         <button onClick={() => toggleLike.mutate({ postId: p.id, liked })} className={`inline-flex items-center gap-1.5 text-xs ${liked ? "text-primary" : "text-muted-foreground"} hover:text-primary`}>
                           <Heart className={`h-4 w-4 ${liked ? "fill-current" : ""}`} /> {p.post_likes.length}
                         </button>
+                        <button onClick={() => setOpenComments((s) => ({ ...s, [p.id]: !s[p.id] }))} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary">
+                          <MessageCircle className="h-4 w-4" /> {p.post_comments?.length ?? 0}
+                        </button>
                         {p.author_id === user.id && editingId !== p.id && (
                           <>
                             <button onClick={() => { setEditingId(p.id); setEditContent(p.content); }} className="text-xs text-muted-foreground hover:text-primary inline-flex items-center gap-1"><Pencil className="h-3.5 w-3.5" /> Edit</button>
@@ -162,6 +260,16 @@ function FeedPage() {
                           </>
                         )}
                       </div>
+                      {openComments[p.id] && (
+                        <CommentsThread
+                          postId={p.id}
+                          currentUserId={user.id}
+                          draft={commentDrafts[p.id] ?? ""}
+                          onDraft={(v) => setCommentDrafts((s) => ({ ...s, [p.id]: v }))}
+                          onSubmit={() => addComment.mutate({ postId: p.id, content: commentDrafts[p.id] ?? "" })}
+                          submitting={addComment.isPending}
+                        />
+                      )}
                     </div>
                   </div>
                 </CardContent>

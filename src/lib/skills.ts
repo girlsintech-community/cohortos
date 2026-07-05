@@ -1,0 +1,17 @@
+export const SKILL_OPTIONS = [
+  "JavaScript","TypeScript","Python","Java","C","C++","C#","Go","Rust","Kotlin","Swift","Ruby","PHP","Scala","R",
+  "HTML","CSS","Tailwind CSS","React","Next.js","Vue","Angular","Svelte","Redux","React Native","Flutter",
+  "Node.js","Express","NestJS","Django","Flask","FastAPI","Spring Boot","Ruby on Rails","GraphQL","REST APIs",
+  "SQL","PostgreSQL","MySQL","MongoDB","Redis","Firebase","Supabase","Prisma","SQLite",
+  "AWS","GCP","Azure","Docker","Kubernetes","CI/CD","Linux","Nginx","Terraform","Vercel","Netlify",
+  "Git","GitHub","GitLab","Jira",
+  "Data Structures","Algorithms","System Design","Object-Oriented Programming","Operating Systems","Computer Networks","DBMS",
+  "Machine Learning","Deep Learning","NLP","Computer Vision","Pandas","NumPy","PyTorch","TensorFlow","Scikit-learn","LangChain","LLMs","Generative AI",
+  "Data Analysis","Data Visualization","Power BI","Tableau","Excel",
+  "Cybersecurity","Ethical Hacking","Cryptography",
+  "Blockchain","Solidity","Web3",
+  "UI/UX Design","Figma","Adobe XD","Product Design",
+  "Product Management","Agile","Scrum","Technical Writing","Public Speaking","Leadership",
+  "Testing","Jest","Playwright","Selenium","Cypress",
+  "DevOps","Microservices","Serverless",
+] as const;

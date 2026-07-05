@@ -1,6 +1,6 @@
 import { createFileRoute, Outlet, redirect, Link, useRouter, useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { Home, User, LogOut, Rss, MessagesSquare, Target, Trophy, Shield } from "lucide-react";
+import { Home, User, LogOut, Rss, MessagesSquare, Target, Trophy, Shield, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -22,7 +22,9 @@ export const Route = createFileRoute("/_authenticated")({
     // Load role for admin nav
     const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", user.id);
     const isAdmin = (roles ?? []).some((r) => r.role === "admin");
-    return { user, isAdmin, onboarded };
+    const { data: pr } = await supabase.from("profiles").select("primary_role").eq("id", user.id).maybeSingle();
+    const primaryRole = ((pr as { primary_role?: string | null } | null)?.primary_role ?? null) as "mentee" | "mentor" | "team_member" | null;
+    return { user, isAdmin, onboarded, primaryRole };
   },
   component: AuthedLayout,
 });
@@ -31,7 +33,7 @@ function AuthedLayout() {
   const router = useRouter();
   const qc = useQueryClient();
   const path = useRouterState({ select: (s) => s.location.pathname });
-  const { isAdmin, onboarded } = Route.useRouteContext();
+  const { isAdmin, onboarded, primaryRole } = Route.useRouteContext();
 
   async function signOut() {
     await qc.cancelQueries();
@@ -46,6 +48,7 @@ function AuthedLayout() {
     { to: "/discussions", label: "Discussions", icon: MessagesSquare },
     { to: "/challenges", label: "Challenges", icon: Target },
     { to: "/leaderboard", label: "Leaderboard", icon: Trophy },
+    ...(primaryRole === "mentee" ? [{ to: "/speed-networking", label: "Speed Networking", icon: Users }] : []),
     { to: "/profile", label: "Profile", icon: User },
     ...(isAdmin ? [{ to: "/admin", label: "Admin", icon: Shield }] : []),
   ] : [];

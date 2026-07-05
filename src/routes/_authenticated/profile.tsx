@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Trophy, Flame, Zap, Loader2, Award, Upload, X, Linkedin, Github, MapPin, GraduationCap } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SKILL_OPTIONS } from "@/lib/skills";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/profile")({
@@ -61,6 +63,7 @@ function ProfilePage() {
   const [skillInput, setSkillInput] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [primaryRole, setPrimaryRole] = useState<"mentee" | "mentor" | "team_member" | "">("");
 
   useEffect(() => {
     if (profile) {
@@ -76,8 +79,32 @@ function ProfilePage() {
       setGithub(profile.github_url ?? "");
       setSkills(profile.skills ?? []);
       setAvatarUrl(profile.avatar_url ?? null);
+      const pr = (profile as { primary_role?: string | null }).primary_role;
+      if (pr === "mentee" || pr === "mentor" || pr === "team_member") setPrimaryRole(pr);
     }
   }, [profile]);
+
+  const { data: stats } = useQuery({
+    queryKey: ["profileStats", user.id],
+    queryFn: async () => {
+      const postIdsRes = await supabase.from("posts").select("id").eq("author_id", user.id);
+      const postIds = (postIdsRes.data ?? []).map((p) => p.id);
+      const [postsCount, commentsCount, likesGiven, likesReceived] = await Promise.all([
+        supabase.from("posts").select("id", { count: "exact", head: true }).eq("author_id", user.id),
+        supabase.from("post_comments").select("id", { count: "exact", head: true }).eq("author_id", user.id),
+        supabase.from("post_likes").select("post_id", { count: "exact", head: true }).eq("user_id", user.id),
+        postIds.length
+          ? supabase.from("post_likes").select("post_id", { count: "exact", head: true }).in("post_id", postIds)
+          : Promise.resolve({ count: 0 } as { count: number | null }),
+      ]);
+      return {
+        posts: postsCount.count ?? 0,
+        comments: commentsCount.count ?? 0,
+        likesGiven: likesGiven.count ?? 0,
+        likesReceived: likesReceived.count ?? 0,
+      };
+    },
+  });
 
   function addSkill() {
     const s = skillInput.trim();
@@ -120,6 +147,7 @@ function ProfilePage() {
         github_url: github || null,
         skills,
         avatar_url: avatarUrl,
+        primary_role: primaryRole || null,
       }).eq("id", user.id);
       if (error) throw error;
     },
@@ -180,6 +208,12 @@ function ProfilePage() {
             <MiniStat icon={Trophy} label="Level" value={profile.level.toString()} />
             <MiniStat icon={Flame} label="Streak" value={`${profile.streak}d`} />
           </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+            <MiniStat icon={Zap} label="Posts" value={String(stats?.posts ?? 0)} />
+            <MiniStat icon={Zap} label="Comments" value={String(stats?.comments ?? 0)} />
+            <MiniStat icon={Zap} label="Likes given" value={String(stats?.likesGiven ?? 0)} />
+            <MiniStat icon={Zap} label="Likes received" value={String(stats?.likesReceived ?? 0)} />
+          </div>
         </CardContent>
       </Card>
 
@@ -193,6 +227,16 @@ function ProfilePage() {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <F label="Display name" className="col-span-2"><Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={60} /></F>
+              <F label="Role" className="col-span-2">
+                <Select value={primaryRole} onValueChange={(v) => setPrimaryRole(v as typeof primaryRole)}>
+                  <SelectTrigger><SelectValue placeholder="Select role" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="mentee">Mentee</SelectItem>
+                    <SelectItem value="mentor">Mentor</SelectItem>
+                    <SelectItem value="team_member">Team</SelectItem>
+                  </SelectContent>
+                </Select>
+              </F>
               <F label="Bio" className="col-span-2"><Textarea rows={3} value={bio} onChange={(e) => setBio(e.target.value)} maxLength={280} /></F>
               <F label="College" className="col-span-2"><Input value={college} onChange={(e) => setCollege(e.target.value)} maxLength={120} /></F>
               <F label="Course"><Input value={course} onChange={(e) => setCourse(e.target.value)} maxLength={60} /></F>
@@ -204,7 +248,10 @@ function ProfilePage() {
               <F label="GitHub URL" className="col-span-2"><Input value={github} onChange={(e) => setGithub(e.target.value)} placeholder="https://github.com/…" /></F>
               <F label="Skills" className="col-span-2">
                 <div className="flex gap-2">
-                  <Input value={skillInput} onChange={(e) => setSkillInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSkill(); } }} placeholder="Add a skill…" />
+                  <Input list="profile-skills-list" value={skillInput} onChange={(e) => setSkillInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSkill(); } }} placeholder="Pick or type a skill…" />
+                  <datalist id="profile-skills-list">
+                    {SKILL_OPTIONS.map((s) => <option key={s} value={s} />)}
+                  </datalist>
                   <Button type="button" variant="secondary" onClick={addSkill}>Add</Button>
                 </div>
                 {skills.length > 0 && (

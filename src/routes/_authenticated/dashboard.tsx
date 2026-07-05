@@ -1,10 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Flame, Trophy, Zap, Target, Users, MessageSquare, CheckCircle2 } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
@@ -41,6 +43,35 @@ function Dashboard() {
     },
   });
 
+  const startOfDay = new Date(); startOfDay.setHours(0, 0, 0, 0);
+  const dayIso = startOfDay.toISOString();
+
+  const { data: todayCounts } = useQuery({
+    queryKey: ["todayCounts", user.id],
+    queryFn: async () => {
+      const [posts, comments, subs] = await Promise.all([
+        supabase.from("posts").select("id", { count: "exact", head: true }).eq("author_id", user.id).gte("created_at", dayIso),
+        supabase.from("post_comments").select("id", { count: "exact", head: true }).eq("author_id", user.id).gte("created_at", dayIso),
+        supabase.from("challenge_submissions").select("id", { count: "exact", head: true }).eq("user_id", user.id).gte("created_at", dayIso),
+      ]);
+      return { posts: posts.count ?? 0, comments: comments.count ?? 0, subs: subs.count ?? 0 };
+    },
+  });
+
+  const { data: members } = useQuery({
+    queryKey: ["members"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, display_name, avatar_url, college, primary_role, xp, level, skills")
+        .eq("onboarded", true)
+        .order("xp", { ascending: false })
+        .limit(24);
+      if (error) throw error;
+      return data as Array<{ id: string; display_name: string; avatar_url: string | null; college: string | null; primary_role: string | null; xp: number; level: number; skills: string[] | null }>;
+    },
+  });
+
   const xp = profile?.xp ?? 0;
   const level = profile?.level ?? 1;
   const streak = profile?.streak ?? 0;
@@ -48,9 +79,9 @@ function Dashboard() {
   const progressToNext = (xp % XP_PER_LEVEL) / XP_PER_LEVEL * 100;
 
   const missions = [
-    { icon: MessageSquare, label: "Post an update in the feed", xp: 5, done: false },
-    { icon: Target, label: "Answer a discussion question", xp: 8, done: false },
-    { icon: CheckCircle2, label: "Submit today's challenge", xp: 100, done: false },
+    { icon: MessageSquare, label: "Post an update in the feed", xp: 5, done: (todayCounts?.posts ?? 0) > 0 },
+    { icon: Target, label: "Reply to a post or discussion", xp: 3, done: (todayCounts?.comments ?? 0) > 0 },
+    { icon: CheckCircle2, label: "Submit today's challenge", xp: 100, done: (todayCounts?.subs ?? 0) > 0 },
   ];
 
   return (
@@ -97,7 +128,7 @@ function Dashboard() {
                     <p className="text-xs text-muted-foreground">+{m.xp} XP</p>
                   </div>
                 </div>
-                <Badge variant="outline" className="text-xs">Pending</Badge>
+                <Badge variant={m.done ? "default" : "outline"} className="text-xs">{m.done ? "Done ✓" : "Pending"}</Badge>
               </div>
             ))}
           </CardContent>
@@ -116,12 +147,43 @@ function Dashboard() {
               <Progress value={progressToNext} className="h-2" />
             </div>
             <div className="rounded-lg border border-dashed p-4 text-center">
-              <p className="text-sm text-muted-foreground">Feed, discussions & challenges land next.</p>
-              <p className="text-xs text-muted-foreground mt-1">Your XP is already being tracked.</p>
+              <p className="text-sm text-muted-foreground">Post, reply, and ship challenges to climb the leaderboard.</p>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5 text-primary" /> Cohort members</CardTitle>
+          <Link to="/leaderboard" className="text-xs text-primary hover:underline">See leaderboard →</Link>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {(members ?? []).map((m) => {
+              const ini = (m.display_name || "?").slice(0, 2).toUpperCase();
+              return (
+                <div key={m.id} className="flex gap-3 rounded-lg border p-3 hover:bg-muted/40 transition">
+                  <Avatar className="h-11 w-11"><AvatarImage src={m.avatar_url ?? undefined} /><AvatarFallback className="bg-primary/10 text-primary text-sm">{ini}</AvatarFallback></Avatar>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-sm truncate">{m.display_name}</p>
+                      {m.primary_role && <Badge variant="secondary" className="capitalize text-[10px]">{m.primary_role.replace("_", " ")}</Badge>}
+                    </div>
+                    {m.college && <p className="text-xs text-muted-foreground truncate">{m.college}</p>}
+                    <p className="text-[11px] text-muted-foreground mt-0.5">Lvl {m.level} · {m.xp} XP</p>
+                    {m.skills && m.skills.length > 0 && (
+                      <div className="mt-1.5 flex flex-wrap gap-1">
+                        {m.skills.slice(0, 3).map((s) => <Badge key={s} variant="outline" className="text-[10px]">{s}</Badge>)}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
