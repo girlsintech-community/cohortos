@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Sparkles, Upload, X } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SKILL_OPTIONS } from "@/lib/skills";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/onboarding")({
@@ -44,6 +46,7 @@ function Onboarding() {
   const [skillInput, setSkillInput] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [primaryRole, setPrimaryRole] = useState<"mentee" | "mentor" | "team_member" | "">("");
 
   useEffect(() => {
     if (!profile) return;
@@ -59,6 +62,8 @@ function Onboarding() {
     setGithub(profile.github_url ?? "");
     setSkills(profile.skills ?? []);
     setAvatarUrl(profile.avatar_url ?? null);
+    const pr = (profile as { primary_role?: string | null }).primary_role;
+    if (pr === "mentee" || pr === "mentor" || pr === "team_member") setPrimaryRole(pr);
   }, [profile]);
 
   function addSkill() {
@@ -90,6 +95,8 @@ function Onboarding() {
   const save = useMutation({
     mutationFn: async () => {
       if (!displayName.trim()) throw new Error("Name is required");
+      if (!avatarUrl) throw new Error("Please upload a profile photo");
+      if (!primaryRole) throw new Error("Please select your role");
       if (!college.trim()) throw new Error("College is required");
       if (!branch.trim() || !course.trim()) throw new Error("Course & branch are required");
       if (!gradYear || isNaN(Number(gradYear))) throw new Error("Graduation year is required");
@@ -107,6 +114,7 @@ function Onboarding() {
         skills,
         avatar_url: avatarUrl,
         onboarded: true,
+        primary_role: primaryRole,
       }).eq("id", user.id);
       if (error) throw error;
     },
@@ -154,6 +162,16 @@ function Onboarding() {
         <CardHeader><CardTitle>Basics</CardTitle></CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <Field label="Display name*"><Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={60} /></Field>
+          <Field label="I am joining as*">
+            <Select value={primaryRole} onValueChange={(v) => setPrimaryRole(v as typeof primaryRole)}>
+              <SelectTrigger><SelectValue placeholder="Select your role" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="mentee">Mentee</SelectItem>
+                <SelectItem value="mentor">Mentor</SelectItem>
+                <SelectItem value="team_member">Team</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
           <Field label="Short bio" className="sm:col-span-2"><Textarea rows={3} value={bio} onChange={(e) => setBio(e.target.value)} maxLength={280} /></Field>
         </CardContent>
       </Card>
@@ -183,9 +201,13 @@ function Onboarding() {
           <Field label="GitHub URL"><Input value={github} onChange={(e) => setGithub(e.target.value)} /></Field>
           <Field label="Skills" className="sm:col-span-2">
             <div className="flex gap-2">
-              <Input value={skillInput} onChange={(e) => setSkillInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSkill(); } }} />
+              <Input list="skills-list" value={skillInput} onChange={(e) => setSkillInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSkill(); } }} />
+              <datalist id="skills-list">
+                {SKILL_OPTIONS.map((s) => <option key={s} value={s} />)}
+              </datalist>
               <Button type="button" variant="secondary" onClick={addSkill}>Add</Button>
             </div>
+            <p className="text-xs text-muted-foreground mt-1">Pick from the list or type your own.</p>
             {skills.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-3">
                 {skills.map((s) => (
