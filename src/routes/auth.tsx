@@ -13,6 +13,20 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
+async function isEmailAllowed(email: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("allowed_emails")
+    .select("id")
+    .eq("email", email.toLowerCase().trim())
+    .maybeSingle();
+  if (error) {
+    // If the table doesn't exist yet (migration not applied), allow all
+    console.warn("Could not check allowed_emails:", error.message);
+    return true;
+  }
+  return !!data;
+}
+
 function AuthPage() {
   const navigate = useNavigate();
   const [checking, setChecking] = useState(true);
@@ -36,6 +50,14 @@ function AuthPage() {
   async function handleSignIn(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
+    // Check allowlist
+    const allowed = await isEmailAllowed(email);
+    if (!allowed) {
+      setBusy(false);
+      return toast.error("Access denied", {
+        description: "This email is not on the approved list. This platform is exclusively for Girls Leading Tech program members.",
+      });
+    }
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setBusy(false);
     if (error) return toast.error("Sign in failed", { description: error.message });
@@ -46,6 +68,14 @@ function AuthPage() {
   async function handleSignUp(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
+    // Check allowlist
+    const allowed = await isEmailAllowed(email);
+    if (!allowed) {
+      setBusy(false);
+      return toast.error("Access denied", {
+        description: "This email is not on the approved list. This platform is exclusively for Girls Leading Tech program mentees. Contact the admin if you believe this is an error.",
+      });
+    }
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -127,6 +157,9 @@ function AuthPage() {
             <CardDescription>Sign in to join your cohort dashboard.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+              🔒 This platform is exclusively for Girls Leading Tech program members. Only pre-approved emails can sign in or sign up.
+            </div>
             <Tabs defaultValue="signin">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="signin">Sign in</TabsTrigger>

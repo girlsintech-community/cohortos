@@ -134,17 +134,24 @@ function ProfilePage() {
 
   const save = useMutation({
     mutationFn: async () => {
+      if (!displayName.trim()) throw new Error("Display name is required");
+      if (!linkedin.trim()) throw new Error("LinkedIn URL is required");
+      if (!github.trim()) throw new Error("GitHub URL is required");
+      if (!city.trim()) throw new Error("City is required");
+      if (!stateVal.trim()) throw new Error("State is required");
+      if (!bio.trim()) throw new Error("Short bio is required");
+      if (skills.length === 0) throw new Error("At least one skill is required");
       const { error } = await supabase.from("profiles").update({
-        display_name: displayName,
-        bio: bio || null,
+        display_name: displayName.trim(),
+        bio: bio.trim(),
         college: college || null,
-        city: city || null,
-        state: stateVal || null,
+        city: city.trim(),
+        state: stateVal.trim(),
         branch: branch || null,
         course: course || null,
         graduation_year: gradYear ? Number(gradYear) : null,
-        linkedin_url: linkedin || null,
-        github_url: github || null,
+        linkedin_url: linkedin.trim(),
+        github_url: github.trim(),
         skills,
         avatar_url: avatarUrl,
         primary_role: primaryRole || null,

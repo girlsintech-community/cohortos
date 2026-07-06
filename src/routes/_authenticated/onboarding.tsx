@@ -100,17 +100,23 @@ function Onboarding() {
       if (!college.trim()) throw new Error("College is required");
       if (!branch.trim() || !course.trim()) throw new Error("Course & branch are required");
       if (!gradYear || isNaN(Number(gradYear))) throw new Error("Graduation year is required");
+      if (!linkedin.trim()) throw new Error("LinkedIn URL is required");
+      if (!github.trim()) throw new Error("GitHub URL is required");
+      if (!city.trim()) throw new Error("City is required");
+      if (!stateVal.trim()) throw new Error("State is required");
+      if (!bio.trim()) throw new Error("Short bio is required");
+      if (skills.length === 0) throw new Error("Please add at least one skill");
       const { error } = await supabase.from("profiles").update({
         display_name: displayName.trim(),
-        bio: bio.trim() || null,
+        bio: bio.trim(),
         college: college.trim(),
-        city: city.trim() || null,
-        state: stateVal.trim() || null,
+        city: city.trim(),
+        state: stateVal.trim(),
         branch: branch.trim(),
         course: course.trim(),
         graduation_year: Number(gradYear),
-        linkedin_url: linkedin.trim() || null,
-        github_url: github.trim() || null,
+        linkedin_url: linkedin.trim(),
+        github_url: github.trim(),
         skills,
         avatar_url: avatarUrl,
         onboarded: true,
@@ -135,11 +141,12 @@ function Onboarding() {
           <Sparkles className="h-7 w-7" />
         </div>
         <h1 className="text-3xl font-bold">Welcome to Cohort OS ✨</h1>
-        <p className="text-muted-foreground">A few quick details so your cohort sisters can find & recognize you.</p>
+        <p className="text-muted-foreground">Complete your profile so your cohort sisters can find & recognize you.</p>
+        <p className="text-xs text-destructive font-medium">All fields marked with * are required.</p>
       </div>
 
       <Card>
-        <CardHeader><CardTitle>Your photo</CardTitle><CardDescription>A friendly face helps the community connect.</CardDescription></CardHeader>
+        <CardHeader><CardTitle>Your photo *</CardTitle><CardDescription>A friendly face helps the community connect.</CardDescription></CardHeader>
         <CardContent>
           <div className="flex items-center gap-4">
             <Avatar className="h-20 w-20 border-2 border-primary/30">
@@ -161,8 +168,8 @@ function Onboarding() {
       <Card>
         <CardHeader><CardTitle>Basics</CardTitle></CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
-          <Field label="Display name*"><Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={60} /></Field>
-          <Field label="I am joining as*">
+          <Field label="Display name *"><Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={60} /></Field>
+          <Field label="I am joining as *">
             <Select value={primaryRole} onValueChange={(v) => setPrimaryRole(v as typeof primaryRole)}>
               <SelectTrigger><SelectValue placeholder="Select your role" /></SelectTrigger>
               <SelectContent>
@@ -172,34 +179,34 @@ function Onboarding() {
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Short bio" className="sm:col-span-2"><Textarea rows={3} value={bio} onChange={(e) => setBio(e.target.value)} maxLength={280} /></Field>
+          <Field label="Short bio *" className="sm:col-span-2"><Textarea rows={3} value={bio} onChange={(e) => setBio(e.target.value)} maxLength={280} placeholder="Tell us a bit about yourself…" /></Field>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader><CardTitle>Education</CardTitle></CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
-          <Field label="College / University*" className="sm:col-span-2"><Input value={college} onChange={(e) => setCollege(e.target.value)} maxLength={120} /></Field>
-          <Field label="Course*"><Input value={course} onChange={(e) => setCourse(e.target.value)} maxLength={60} /></Field>
-          <Field label="Branch*"><Input value={branch} onChange={(e) => setBranch(e.target.value)} maxLength={60} /></Field>
-          <Field label="Graduation year*"><Input type="number" min={2020} max={2035} value={gradYear} onChange={(e) => setGradYear(e.target.value)} /></Field>
+          <Field label="College / University *" className="sm:col-span-2"><Input value={college} onChange={(e) => setCollege(e.target.value)} maxLength={120} /></Field>
+          <Field label="Course *"><Input value={course} onChange={(e) => setCourse(e.target.value)} maxLength={60} /></Field>
+          <Field label="Branch *"><Input value={branch} onChange={(e) => setBranch(e.target.value)} maxLength={60} /></Field>
+          <Field label="Graduation year *"><Input type="number" min={2020} max={2035} value={gradYear} onChange={(e) => setGradYear(e.target.value)} /></Field>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader><CardTitle>Location</CardTitle></CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
-          <Field label="City"><Input value={city} onChange={(e) => setCity(e.target.value)} maxLength={60} /></Field>
-          <Field label="State"><Input value={stateVal} onChange={(e) => setStateVal(e.target.value)} maxLength={60} /></Field>
+          <Field label="City *"><Input value={city} onChange={(e) => setCity(e.target.value)} maxLength={60} /></Field>
+          <Field label="State *"><Input value={stateVal} onChange={(e) => setStateVal(e.target.value)} maxLength={60} /></Field>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader><CardTitle>Links & Skills</CardTitle></CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
-          <Field label="LinkedIn URL"><Input value={linkedin} onChange={(e) => setLinkedin(e.target.value)} /></Field>
-          <Field label="GitHub URL"><Input value={github} onChange={(e) => setGithub(e.target.value)} /></Field>
-          <Field label="Skills" className="sm:col-span-2">
+          <Field label="LinkedIn URL *"><Input value={linkedin} onChange={(e) => setLinkedin(e.target.value)} placeholder="https://linkedin.com/in/…" /></Field>
+          <Field label="GitHub URL *"><Input value={github} onChange={(e) => setGithub(e.target.value)} placeholder="https://github.com/…" /></Field>
+          <Field label="Skills * (at least 1)" className="sm:col-span-2">
             <div className="flex gap-2">
               <Input list="skills-list" value={skillInput} onChange={(e) => setSkillInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSkill(); } }} />
               <datalist id="skills-list">

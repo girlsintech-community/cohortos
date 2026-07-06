@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, CheckCircle2, XCircle, Trash2, Users, Rss, MessagesSquare, Target, Trophy, Flame, Heart } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Trash2, Users, Rss, MessagesSquare, Target, Trophy, Flame, Heart, Mail, BookOpen, Search } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/admin")({
@@ -25,19 +25,23 @@ function AdminPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Admin</h1>
-        <p className="text-muted-foreground">Manage challenges and approve submissions.</p>
+        <p className="text-muted-foreground">Manage challenges, submissions, allowlist, and resources.</p>
       </div>
       <Tabs defaultValue="overview">
-        <TabsList>
+        <TabsList className="flex-wrap">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="members">Members</TabsTrigger>
           <TabsTrigger value="submissions">Submissions</TabsTrigger>
           <TabsTrigger value="challenges">Challenges</TabsTrigger>
+          <TabsTrigger value="allowlist">Allowlist</TabsTrigger>
+          <TabsTrigger value="resources">Resources</TabsTrigger>
         </TabsList>
         <TabsContent value="overview" className="mt-4"><OverviewPanel /></TabsContent>
         <TabsContent value="members" className="mt-4"><MembersPanel /></TabsContent>
         <TabsContent value="submissions" className="mt-4"><SubmissionsPanel /></TabsContent>
         <TabsContent value="challenges" className="mt-4"><ChallengesPanel /></TabsContent>
+        <TabsContent value="allowlist" className="mt-4"><AllowlistPanel /></TabsContent>
+        <TabsContent value="resources" className="mt-4"><ResourcesPanel /></TabsContent>
       </Tabs>
     </div>
   );
@@ -321,6 +325,238 @@ function ChallengesPanel() {
               </div>
               <Button size="sm" variant="outline" onClick={() => toggle.mutate({ id: c.id, active: !c.is_active })}>{c.is_active ? "Hide" : "Show"}</Button>
               <Button size="sm" variant="ghost" onClick={() => remove.mutate(c.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ─── Allowlist Panel ───
+function AllowlistPanel() {
+  const qc = useQueryClient();
+  const [newEmail, setNewEmail] = useState("");
+  const [bulkEmails, setBulkEmails] = useState("");
+  const [searchQ, setSearchQ] = useState("");
+
+  const { data: emails, isLoading } = useQuery({
+    queryKey: ["admin", "allowlist"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("allowed_emails")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      return data as Array<{ id: string; email: string; created_at: string }>;
+    },
+  });
+
+  const addOne = useMutation({
+    mutationFn: async () => {
+      const e = newEmail.trim().toLowerCase();
+      if (!e || !e.includes("@")) throw new Error("Invalid email");
+      const { error } = await supabase.from("allowed_emails").insert({ email: e });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setNewEmail("");
+      toast.success("Email added");
+      qc.invalidateQueries({ queryKey: ["admin", "allowlist"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const addBulk = useMutation({
+    mutationFn: async () => {
+      const lines = bulkEmails.split(/[,\n;]+/).map((l) => l.trim().toLowerCase()).filter((l) => l && l.includes("@"));
+      if (lines.length === 0) throw new Error("No valid emails found");
+      const rows = lines.map((email) => ({ email }));
+      const { error } = await supabase.from("allowed_emails").upsert(rows, { onConflict: "email", ignoreDuplicates: true });
+      if (error) throw error;
+      return lines.length;
+    },
+    onSuccess: (count) => {
+      setBulkEmails("");
+      toast.success(`Added ${count} emails`);
+      qc.invalidateQueries({ queryKey: ["admin", "allowlist"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("allowed_emails").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Email removed");
+      qc.invalidateQueries({ queryKey: ["admin", "allowlist"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const filtered = (emails ?? []).filter((e) => !searchQ.trim() || e.email.toLowerCase().includes(searchQ.toLowerCase()));
+
+  return (
+    <div className="grid gap-6 md:grid-cols-2">
+      <div className="space-y-4">
+        <Card>
+          <CardHeader><CardTitle className="flex items-center gap-2"><Mail className="h-5 w-5 text-primary" /> Add email</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex gap-2">
+              <Input value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="user@gmail.com" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addOne.mutate(); } }} />
+              <Button onClick={() => addOne.mutate()} disabled={addOne.isPending}>Add</Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>Bulk import</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            <Textarea rows={6} value={bulkEmails} onChange={(e) => setBulkEmails(e.target.value)} placeholder="Paste emails — one per line, comma-separated, or semicolon-separated" />
+            <Button onClick={() => addBulk.mutate()} disabled={addBulk.isPending} className="w-full">
+              {addBulk.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Import emails
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Allowed emails ({(emails ?? []).length})</CardTitle>
+          <div className="relative mt-2">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input value={searchQ} onChange={(e) => setSearchQ(e.target.value)} placeholder="Search…" className="pl-9" />
+          </div>
+        </CardHeader>
+        <CardContent className="max-h-96 overflow-y-auto space-y-1">
+          {isLoading ? (
+            <Loader2 className="h-5 w-5 animate-spin text-primary mx-auto" />
+          ) : filtered.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">No emails found.</p>
+          ) : (
+            filtered.map((e) => (
+              <div key={e.id} className="flex items-center justify-between rounded px-2 py-1.5 hover:bg-muted/40 text-sm group">
+                <span className="truncate">{e.email}</span>
+                <button
+                  onClick={() => { if (confirm(`Remove ${e.email}?`)) remove.mutate(e.id); }}
+                  className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ─── Resources Panel ───
+function ResourcesPanel() {
+  const qc = useQueryClient();
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [url, setUrl] = useState("");
+  const [category, setCategory] = useState("General");
+
+  const { data: resources } = useQuery({
+    queryKey: ["admin", "resources"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("resources").select("*").order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as Array<{ id: string; title: string; description: string | null; url: string; category: string; is_active: boolean; created_at: string }>;
+    },
+  });
+
+  const create = useMutation({
+    mutationFn: async () => {
+      if (!title.trim() || !url.trim()) throw new Error("Title and URL are required");
+      let finalUrl = url.trim();
+      if (!/^https?:\/\//i.test(finalUrl)) finalUrl = `https://${finalUrl}`;
+      const { error } = await supabase.from("resources").insert({
+        title: title.trim(),
+        description: description.trim() || null,
+        url: finalUrl,
+        category,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setTitle(""); setDescription(""); setUrl("");
+      toast.success("Resource added");
+      qc.invalidateQueries({ queryKey: ["admin", "resources"] });
+      qc.invalidateQueries({ queryKey: ["resources"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const toggle = useMutation({
+    mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
+      const { error } = await supabase.from("resources").update({ is_active: active }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "resources"] });
+      qc.invalidateQueries({ queryKey: ["resources"] });
+    },
+  });
+
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("resources").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Deleted");
+      qc.invalidateQueries({ queryKey: ["admin", "resources"] });
+      qc.invalidateQueries({ queryKey: ["resources"] });
+    },
+  });
+
+  return (
+    <div className="grid gap-6 md:grid-cols-2">
+      <Card>
+        <CardHeader><CardTitle className="flex items-center gap-2"><BookOpen className="h-5 w-5 text-primary" /> New resource</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <div className="space-y-1.5"><Label>Title</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} /></div>
+          <div className="space-y-1.5"><Label>Description</Label><Textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} /></div>
+          <div className="space-y-1.5"><Label>URL</Label><Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" /></div>
+          <div className="space-y-1.5"><Label>Category</Label>
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="General">General</SelectItem>
+                <SelectItem value="DSA">DSA</SelectItem>
+                <SelectItem value="Interview Prep">Interview Prep</SelectItem>
+                <SelectItem value="Tools">Tools</SelectItem>
+                <SelectItem value="Career">Career</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <Button onClick={() => create.mutate()} disabled={create.isPending} className="w-full" style={{ background: "var(--gradient-primary)" }}>
+            {create.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Add resource
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>All resources ({(resources ?? []).length})</CardTitle></CardHeader>
+        <CardContent className="space-y-2 max-h-96 overflow-y-auto">
+          {(resources ?? []).length === 0 && <p className="text-sm text-muted-foreground">None yet.</p>}
+          {(resources ?? []).map((r) => (
+            <div key={r.id} className="flex items-start gap-2 rounded border p-2">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{r.title}</p>
+                <p className="text-xs text-muted-foreground">{r.category} {r.is_active ? "" : "· hidden"}</p>
+                <a href={r.url} target="_blank" rel="noreferrer" className="text-[11px] text-primary hover:underline truncate block">{r.url}</a>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => toggle.mutate({ id: r.id, active: !r.is_active })}>{r.is_active ? "Hide" : "Show"}</Button>
+              <Button size="sm" variant="ghost" onClick={() => { if (confirm("Delete?")) remove.mutate(r.id); }}><Trash2 className="h-4 w-4 text-destructive" /></Button>
             </div>
           ))}
         </CardContent>

@@ -7,6 +7,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Heart, Loader2, Trash2, Pencil, X, Check, MessageCircle, Send, ImagePlus, LinkIcon, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
@@ -14,6 +16,19 @@ import { formatDistanceToNow } from "date-fns";
 export const Route = createFileRoute("/_authenticated/feed")({
   component: FeedPage,
 });
+
+const CATEGORIES = [
+  { value: "all", label: "All" },
+  { value: "general", label: "General" },
+  { value: "query", label: "Query" },
+  { value: "resource", label: "Resource" },
+] as const;
+
+const CATEGORY_BADGE: Record<string, string> = {
+  general: "bg-blue-500/10 text-blue-600 border-blue-500/20",
+  query: "bg-amber-500/10 text-amber-600 border-amber-500/20",
+  resource: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
+};
 
 function CommentsThread({ postId, currentUserId, draft, onDraft, onSubmit, submitting }: {
   postId: string;
@@ -90,6 +105,7 @@ type Post = {
   created_at: string;
   image_url: string | null;
   link_url: string | null;
+  category: string;
   profiles: { display_name: string; avatar_url: string | null } | null;
   post_likes: { user_id: string }[];
   post_comments: { id: string }[];
@@ -116,19 +132,25 @@ function FeedPage() {
   const [editContent, setEditContent] = useState("");
   const [openComments, setOpenComments] = useState<Record<string, boolean>>({});
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
+  const [postCategory, setPostCategory] = useState("general");
+  const [filterCategory, setFilterCategory] = useState("all");
 
   const { data: posts, isLoading } = useQuery({
     queryKey: ["posts"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("posts")
-        .select("id, author_id, content, created_at, image_url, link_url, profiles!posts_author_profile_fkey(display_name, avatar_url), post_likes(user_id), post_comments(id)")
+        .select("id, author_id, content, created_at, image_url, link_url, category, profiles!posts_author_profile_fkey(display_name, avatar_url), post_likes(user_id), post_comments(id)")
         .order("created_at", { ascending: false })
         .limit(50);
       if (error) throw error;
       return data as unknown as Post[];
     },
   });
+
+  const filteredPosts = filterCategory === "all"
+    ? (posts ?? [])
+    : (posts ?? []).filter((p) => p.category === filterCategory);
 
   async function handleImage(file: File) {
     if (file.size > 5 * 1024 * 1024) return toast.error("Image must be under 5MB");
@@ -176,6 +198,7 @@ function FeedPage() {
         content: text,
         image_url: imageUrl,
         link_url: link,
+        category: postCategory,
       });
       if (error) throw error;
     },
@@ -260,6 +283,16 @@ function FeedPage() {
               <button type="button" onClick={() => setShowLinkInput((v) => !v)} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary">
                 <LinkIcon className="h-4 w-4" /> Link
               </button>
+              <Select value={postCategory} onValueChange={setPostCategory}>
+                <SelectTrigger className="h-8 w-28 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="general">General</SelectItem>
+                  <SelectItem value="query">Query</SelectItem>
+                  <SelectItem value="resource">Resource</SelectItem>
+                </SelectContent>
+              </Select>
               <span className="text-xs text-muted-foreground">{content.length}/2000</span>
             </div>
             <Button onClick={() => create.mutate()} disabled={create.isPending || uploading} style={{ background: "var(--gradient-primary)" }} className="text-primary-foreground">
@@ -269,15 +302,40 @@ function FeedPage() {
         </CardContent>
       </Card>
 
+      {/* Category filter tabs */}
+      <div className="flex gap-2 overflow-x-auto no-scrollbar">
+        {CATEGORIES.map((cat) => (
+          <button
+            key={cat.value}
+            onClick={() => setFilterCategory(cat.value)}
+            className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition ${
+              filterCategory === cat.value
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
+          >
+            {cat.label}
+            {cat.value !== "all" && (
+              <span className="ml-1.5 text-xs opacity-70">
+                {(posts ?? []).filter((p) => p.category === cat.value).length}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
       {isLoading ? (
         <div className="grid place-items-center py-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
-      ) : posts?.length === 0 ? (
-        <p className="text-center text-muted-foreground py-8">No posts yet. Be the first! 💫</p>
+      ) : filteredPosts.length === 0 ? (
+        <p className="text-center text-muted-foreground py-8">
+          {filterCategory === "all" ? "No posts yet. Be the first! 💫" : `No ${filterCategory} posts yet.`}
+        </p>
       ) : (
         <div className="space-y-4">
-          {posts?.map((p) => {
+          {filteredPosts.map((p) => {
             const liked = p.post_likes.some((l) => l.user_id === user.id);
             const initials = (p.profiles?.display_name || "?").slice(0, 2).toUpperCase();
+            const catStyle = CATEGORY_BADGE[p.category] || CATEGORY_BADGE.general;
             return (
               <Card key={p.id}>
                 <CardContent className="pt-5">
@@ -289,9 +347,10 @@ function FeedPage() {
                       </Avatar>
                     </Link>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-baseline gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <Link to="/u/$id" params={{ id: p.author_id }} className="font-semibold text-sm hover:underline">{p.profiles?.display_name ?? "Someone"}</Link>
                         <p className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(p.created_at), { addSuffix: true })}</p>
+                        <Badge variant="outline" className={`text-[10px] capitalize ${catStyle}`}>{p.category}</Badge>
                       </div>
                       {editingId === p.id ? (
                         <div className="mt-2 space-y-2">
