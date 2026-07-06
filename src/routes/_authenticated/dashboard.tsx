@@ -5,8 +5,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Flame, Trophy, Zap, Target, Users, MessageSquare, CheckCircle2 } from "lucide-react";
+import { Flame, Trophy, Zap, Target, Users, MessageSquare, CheckCircle2, Search, Heart, BarChart3, FileText } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
+import { useState } from "react";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
@@ -63,13 +65,41 @@ function Dashboard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, display_name, avatar_url, college, primary_role, xp, level, skills")
+        .select("id, display_name, avatar_url, college, primary_role, xp, level, skills, city, state, branch")
         .eq("onboarded", true)
         .order("xp", { ascending: false })
         .limit(24);
       if (error) throw error;
-      return data as Array<{ id: string; display_name: string; avatar_url: string | null; college: string | null; primary_role: string | null; xp: number; level: number; skills: string[] | null }>;
+      return data as Array<{ id: string; display_name: string; avatar_url: string | null; college: string | null; primary_role: string | null; xp: number; level: number; skills: string[] | null; city: string | null; state: string | null; branch: string | null }>;
     },
+  });
+
+  const { data: platformStats } = useQuery({
+    queryKey: ["platformStats"],
+    queryFn: async () => {
+      const [posts, comments, likes, subs, discussions] = await Promise.all([
+        supabase.from("posts").select("id", { count: "exact", head: true }),
+        supabase.from("post_comments").select("id", { count: "exact", head: true }),
+        supabase.from("post_likes").select("post_id", { count: "exact", head: true }),
+        supabase.from("challenge_submissions").select("id", { count: "exact", head: true }).eq("status", "approved"),
+        supabase.from("discussions").select("id", { count: "exact", head: true }),
+      ]);
+      return {
+        posts: posts.count ?? 0,
+        comments: comments.count ?? 0,
+        likes: likes.count ?? 0,
+        subs: subs.count ?? 0,
+        discussions: discussions.count ?? 0,
+      };
+    },
+  });
+
+  const [memberQ, setMemberQ] = useState("");
+  const filteredMembers = (members ?? []).filter((m) => {
+    if (!memberQ.trim()) return true;
+    const s = memberQ.toLowerCase();
+    return [m.display_name, m.college, m.city, m.state, m.branch, m.primary_role, ...(m.skills ?? [])]
+      .filter(Boolean).some((v) => (v as string).toLowerCase().includes(s));
   });
 
   const xp = profile?.xp ?? 0;
@@ -158,12 +188,18 @@ function Dashboard() {
           <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5 text-primary" /> Cohort members</CardTitle>
           <Link to="/leaderboard" className="text-xs text-primary hover:underline">See leaderboard →</Link>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input value={memberQ} onChange={(e) => setMemberQ(e.target.value)} placeholder="Search by name, college, city, skill…" className="pl-9" />
+          </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {(members ?? []).map((m) => {
+            {filteredMembers.length === 0 ? (
+              <p className="text-sm text-muted-foreground col-span-full text-center py-6">No members match your search.</p>
+            ) : filteredMembers.map((m) => {
               const ini = (m.display_name || "?").slice(0, 2).toUpperCase();
               return (
-                <div key={m.id} className="flex gap-3 rounded-lg border p-3 hover:bg-muted/40 transition">
+                <Link key={m.id} to="/u/$id" params={{ id: m.id }} className="flex gap-3 rounded-lg border p-3 hover:bg-muted/40 transition">
                   <Avatar className="h-11 w-11"><AvatarImage src={m.avatar_url ?? undefined} /><AvatarFallback className="bg-primary/10 text-primary text-sm">{ini}</AvatarFallback></Avatar>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
@@ -171,6 +207,7 @@ function Dashboard() {
                       {m.primary_role && <Badge variant="secondary" className="capitalize text-[10px]">{m.primary_role.replace("_", " ")}</Badge>}
                     </div>
                     {m.college && <p className="text-xs text-muted-foreground truncate">{m.college}</p>}
+                    {(m.city || m.state) && <p className="text-[11px] text-muted-foreground truncate">{[m.city, m.state].filter(Boolean).join(", ")}</p>}
                     <p className="text-[11px] text-muted-foreground mt-0.5">Lvl {m.level} · {m.xp} XP</p>
                     {m.skills && m.skills.length > 0 && (
                       <div className="mt-1.5 flex flex-wrap gap-1">
@@ -178,12 +215,37 @@ function Dashboard() {
                       </div>
                     )}
                   </div>
-                </div>
+                </Link>
               );
             })}
           </div>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><BarChart3 className="h-5 w-5 text-primary" /> Platform pulse</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 grid-cols-2 sm:grid-cols-5">
+            <PulseStat icon={MessageSquare} label="Posts" value={platformStats?.posts ?? 0} />
+            <PulseStat icon={FileText} label="Replies" value={platformStats?.comments ?? 0} />
+            <PulseStat icon={Heart} label="Likes" value={platformStats?.likes ?? 0} />
+            <PulseStat icon={CheckCircle2} label="Challenges" value={platformStats?.subs ?? 0} />
+            <PulseStat icon={Target} label="Discussions" value={platformStats?.discussions ?? 0} />
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function PulseStat({ icon: Icon, label, value }: { icon: React.ComponentType<{ className?: string }>; label: string; value: number }) {
+  return (
+    <div className="rounded-lg border bg-muted/30 p-3 text-center">
+      <div className="flex justify-center text-primary"><Icon className="h-4 w-4" /></div>
+      <div className="mt-1 text-xl font-bold">{value.toLocaleString()}</div>
+      <div className="text-[11px] text-muted-foreground uppercase tracking-wide">{label}</div>
     </div>
   );
 }
