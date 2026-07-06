@@ -1,12 +1,13 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Heart, Loader2, Trash2, Pencil, X, Check, MessageCircle, Send } from "lucide-react";
+import { Heart, Loader2, Trash2, Pencil, X, Check, MessageCircle, Send, ImagePlus, LinkIcon, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 
@@ -44,6 +45,7 @@ function CommentsThread({ postId, currentUserId, draft, onDraft, onSubmit, submi
       qc.invalidateQueries({ queryKey: ["comments", postId] });
       qc.invalidateQueries({ queryKey: ["posts"] });
     },
+    onError: (e: Error) => toast.error("Couldn't delete", { description: e.message }),
   });
   return (
     <div className="mt-3 space-y-3 border-t pt-3">
@@ -86,6 +88,8 @@ type Post = {
   author_id: string;
   content: string;
   created_at: string;
+  image_url: string | null;
+  link_url: string | null;
   profiles: { display_name: string; avatar_url: string | null } | null;
   post_likes: { user_id: string }[];
   post_comments: { id: string }[];
@@ -104,6 +108,10 @@ function FeedPage() {
   const { user } = Route.useRouteContext();
   const qc = useQueryClient();
   const [content, setContent] = useState("");
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [linkUrl, setLinkUrl] = useState("");
+  const [showLinkInput, setShowLinkInput] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
   const [openComments, setOpenComments] = useState<Record<string, boolean>>({});
@@ -114,13 +122,31 @@ function FeedPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("posts")
-        .select("id, author_id, content, created_at, profiles!posts_author_profile_fkey(display_name, avatar_url), post_likes(user_id), post_comments(id)")
+        .select("id, author_id, content, created_at, image_url, link_url, profiles!posts_author_profile_fkey(display_name, avatar_url), post_likes(user_id), post_comments(id)")
         .order("created_at", { ascending: false })
         .limit(50);
       if (error) throw error;
       return data as unknown as Post[];
     },
   });
+
+  async function handleImage(file: File) {
+    if (file.size > 5 * 1024 * 1024) return toast.error("Image must be under 5MB");
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop() || "png";
+      const path = `${user.id}/post-${Date.now()}.${ext}`;
+      const up = await supabase.storage.from("post-images").upload(path, file, { upsert: false });
+      if (up.error) throw up.error;
+      const signed = await supabase.storage.from("post-images").createSignedUrl(path, 60 * 60 * 24 * 365);
+      if (signed.error) throw signed.error;
+      setImageUrl(signed.data.signedUrl);
+    } catch (e) {
+      toast.error("Upload failed", { description: (e as Error).message });
+    } finally {
+      setUploading(false);
+    }
+  }
 
   const addComment = useMutation({
     mutationFn: async ({ postId, content }: { postId: string; content: string }) => {
@@ -141,13 +167,23 @@ function FeedPage() {
   const create = useMutation({
     mutationFn: async () => {
       const text = content.trim();
-      if (!text) throw new Error("Say something");
+      if (!text && !imageUrl && !linkUrl) throw new Error("Add some text, an image, or a link");
       if (text.length > 2000) throw new Error("Too long (max 2000)");
-      const { error } = await supabase.from("posts").insert({ author_id: user.id, content: text });
+      let link: string | null = linkUrl.trim() || null;
+      if (link && !/^https?:\/\//i.test(link)) link = `https://${link}`;
+      const { error } = await supabase.from("posts").insert({
+        author_id: user.id,
+        content: text,
+        image_url: imageUrl,
+        link_url: link,
+      });
       if (error) throw error;
     },
     onSuccess: () => {
       setContent("");
+      setImageUrl(null);
+      setLinkUrl("");
+      setShowLinkInput(false);
       toast.success("Posted!");
       qc.invalidateQueries({ queryKey: ["posts"] });
     },
@@ -167,10 +203,15 @@ function FeedPage() {
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("posts").delete().eq("id", id);
+      const { error, count } = await supabase.from("posts").delete({ count: "exact" }).eq("id", id);
       if (error) throw error;
+      if (!count) throw new Error("Post could not be deleted (permission).");
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["posts"] }),
+    onSuccess: () => {
+      toast.success("Deleted");
+      qc.invalidateQueries({ queryKey: ["posts"] });
+    },
+    onError: (e: Error) => toast.error("Couldn't delete", { description: e.message }),
   });
 
   const update = useMutation({
@@ -193,16 +234,35 @@ function FeedPage() {
     <div className="max-w-2xl mx-auto space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Cohort Feed</h1>
-        <p className="text-muted-foreground">Share wins, questions, or what you're building today.</p>
+        <p className="text-muted-foreground">Share wins, badges, questions, or what you're building today.</p>
       </div>
 
       <Card>
         <CardHeader><CardTitle>Share an update</CardTitle></CardHeader>
         <CardContent className="space-y-3">
-          <Textarea rows={3} value={content} onChange={(e) => setContent(e.target.value)} maxLength={2000} placeholder="What are you working on?" />
-          <div className="flex justify-between items-center">
-            <span className="text-xs text-muted-foreground">{content.length}/2000</span>
-            <Button onClick={() => create.mutate()} disabled={create.isPending || !content.trim()} style={{ background: "var(--gradient-primary)" }} className="text-primary-foreground">
+          <Textarea rows={3} value={content} onChange={(e) => setContent(e.target.value)} maxLength={2000} placeholder="What are you working on? Share a LeetCode/GfG badge, a win, or a question…" />
+          {imageUrl && (
+            <div className="relative w-full">
+              <img src={imageUrl} alt="preview" className="rounded-lg max-h-72 object-contain border" />
+              <button onClick={() => setImageUrl(null)} className="absolute top-2 right-2 grid h-7 w-7 place-items-center rounded-full bg-black/60 text-white hover:bg-black/80"><X className="h-3.5 w-3.5" /></button>
+            </div>
+          )}
+          {showLinkInput && (
+            <Input placeholder="Paste a link (LeetCode profile, badge, article…)" value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} />
+          )}
+          <div className="flex justify-between items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-2">
+              <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary cursor-pointer">
+                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
+                Photo
+                <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && handleImage(e.target.files[0])} />
+              </label>
+              <button type="button" onClick={() => setShowLinkInput((v) => !v)} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary">
+                <LinkIcon className="h-4 w-4" /> Link
+              </button>
+              <span className="text-xs text-muted-foreground">{content.length}/2000</span>
+            </div>
+            <Button onClick={() => create.mutate()} disabled={create.isPending || uploading} style={{ background: "var(--gradient-primary)" }} className="text-primary-foreground">
               {create.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Post
             </Button>
           </div>
@@ -222,13 +282,15 @@ function FeedPage() {
               <Card key={p.id}>
                 <CardContent className="pt-5">
                   <div className="flex gap-3">
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src={p.profiles?.avatar_url ?? undefined} />
-                      <AvatarFallback className="bg-primary text-primary-foreground text-sm">{initials}</AvatarFallback>
-                    </Avatar>
+                    <Link to="/u/$id" params={{ id: p.author_id }}>
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={p.profiles?.avatar_url ?? undefined} />
+                        <AvatarFallback className="bg-primary text-primary-foreground text-sm">{initials}</AvatarFallback>
+                      </Avatar>
+                    </Link>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-baseline gap-2">
-                        <p className="font-semibold text-sm">{p.profiles?.display_name ?? "Someone"}</p>
+                        <Link to="/u/$id" params={{ id: p.author_id }} className="font-semibold text-sm hover:underline">{p.profiles?.display_name ?? "Someone"}</Link>
                         <p className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(p.created_at), { addSuffix: true })}</p>
                       </div>
                       {editingId === p.id ? (
@@ -244,7 +306,15 @@ function FeedPage() {
                           </div>
                         </div>
                       ) : (
-                        <p className="mt-1 text-sm whitespace-pre-wrap break-words">{p.content}</p>
+                        <>
+                          {p.content && <p className="mt-1 text-sm whitespace-pre-wrap break-words">{p.content}</p>}
+                          {p.image_url && <img src={p.image_url} alt="" className="mt-2 rounded-lg max-h-96 object-contain border" />}
+                          {p.link_url && (
+                            <a href={p.link_url} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1.5 text-xs text-primary hover:underline break-all">
+                              <ExternalLink className="h-3.5 w-3.5 shrink-0" /> {p.link_url}
+                            </a>
+                          )}
+                        </>
                       )}
                       <div className="flex items-center gap-4 mt-3">
                         <button onClick={() => toggleLike.mutate({ postId: p.id, liked })} className={`inline-flex items-center gap-1.5 text-xs ${liked ? "text-primary" : "text-muted-foreground"} hover:text-primary`}>
@@ -256,7 +326,13 @@ function FeedPage() {
                         {p.author_id === user.id && editingId !== p.id && (
                           <>
                             <button onClick={() => { setEditingId(p.id); setEditContent(p.content); }} className="text-xs text-muted-foreground hover:text-primary inline-flex items-center gap-1"><Pencil className="h-3.5 w-3.5" /> Edit</button>
-                            <button onClick={() => remove.mutate(p.id)} className="text-xs text-muted-foreground hover:text-destructive inline-flex items-center gap-1"><Trash2 className="h-3.5 w-3.5" /> Delete</button>
+                            <button
+                              onClick={() => { if (confirm("Delete this post?")) remove.mutate(p.id); }}
+                              disabled={remove.isPending}
+                              className="text-xs text-muted-foreground hover:text-destructive inline-flex items-center gap-1 disabled:opacity-50"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" /> Delete
+                            </button>
                           </>
                         )}
                       </div>

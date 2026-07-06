@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Loader2, Eye, EyeOff } from "lucide-react";
+import { Loader2, Eye, EyeOff, Wand2 } from "lucide-react";
 
 export const Route = createFileRoute("/auth")({
   component: AuthPage,
@@ -21,6 +21,10 @@ function AuthPage() {
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+
+  const strength = useMemo(() => scorePassword(password), [password]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -59,6 +63,26 @@ function AuthPage() {
     }
     toast.success("Account created — welcome to the cohort!");
     navigate({ to: "/dashboard", replace: true });
+  }
+
+  async function handleForgot(e: React.FormEvent) {
+    e.preventDefault();
+    if (!forgotEmail) return;
+    setBusy(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setBusy(false);
+    if (error) return toast.error("Couldn't send reset email", { description: error.message });
+    toast.success("Check your inbox for the reset link.");
+    setForgotOpen(false);
+  }
+
+  function generatePassword() {
+    const pw = makeStrongPassword();
+    setPassword(pw);
+    setShowPassword(true);
+    toast.success("Generated a strong password", { description: "Copy it somewhere safe before signing up." });
   }
 
   if (checking) {
@@ -122,11 +146,22 @@ function AuthPage() {
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>
+                    <button type="button" onClick={() => { setForgotEmail(email); setForgotOpen(true); }} className="text-xs text-primary hover:underline">Forgot password?</button>
                   </div>
                   <Button type="submit" className="w-full" disabled={busy}>
                     {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Sign in
                   </Button>
                 </form>
+                {forgotOpen && (
+                  <form onSubmit={handleForgot} className="mt-4 space-y-2 rounded-lg border bg-muted/30 p-3">
+                    <Label htmlFor="fp-email" className="text-xs">Send reset link to</Label>
+                    <Input id="fp-email" type="email" required value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)} />
+                    <div className="flex gap-2 pt-1">
+                      <Button size="sm" type="submit" disabled={busy}>{busy && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}Send link</Button>
+                      <Button size="sm" type="button" variant="ghost" onClick={() => setForgotOpen(false)}>Cancel</Button>
+                    </div>
+                  </form>
+                )}
               </TabsContent>
               <TabsContent value="signup">
                 <form onSubmit={handleSignUp} className="space-y-3 pt-3">
@@ -146,6 +181,13 @@ function AuthPage() {
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <PasswordStrength score={strength.score} label={strength.label} />
+                      <button type="button" onClick={generatePassword} className="text-xs text-primary hover:underline inline-flex items-center gap-1"><Wand2 className="h-3 w-3" /> Generate strong password</button>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      Use 12+ characters with uppercase, lowercase, a number, and a symbol (e.g. <code className="rounded bg-muted px-1">!@#$%</code>).
+                    </p>
                   </div>
                   <Button type="submit" className="w-full" disabled={busy}>
                     {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Create account
@@ -156,6 +198,43 @@ function AuthPage() {
           </CardContent>
         </Card>
       </div>
+    </div>
+  );
+}
+
+function scorePassword(pw: string) {
+  let score = 0;
+  if (pw.length >= 8) score++;
+  if (pw.length >= 12) score++;
+  if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) score++;
+  if (/\d/.test(pw)) score++;
+  if (/[^A-Za-z0-9]/.test(pw)) score++;
+  const labels = ["Too short", "Weak", "Fair", "Good", "Strong", "Excellent"];
+  return { score, label: labels[Math.min(score, 5)] };
+}
+
+function makeStrongPassword(len = 16) {
+  const lower = "abcdefghijkmnopqrstuvwxyz";
+  const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  const nums = "23456789";
+  const syms = "!@#$%^&*?-_+=";
+  const all = lower + upper + nums + syms;
+  const pick = (s: string) => s[Math.floor(Math.random() * s.length)];
+  const chars = [pick(lower), pick(upper), pick(nums), pick(syms)];
+  for (let i = chars.length; i < len; i++) chars.push(pick(all));
+  return chars.sort(() => Math.random() - 0.5).join("");
+}
+
+function PasswordStrength({ score, label }: { score: number; label: string }) {
+  const tone = score <= 1 ? "bg-destructive" : score <= 2 ? "bg-amber-500" : score <= 3 ? "bg-yellow-500" : "bg-green-500";
+  return (
+    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+      <div className="flex gap-0.5">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <div key={i} className={`h-1.5 w-6 rounded ${i < score ? tone : "bg-muted"}`} />
+        ))}
+      </div>
+      <span>{label}</span>
     </div>
   );
 }
