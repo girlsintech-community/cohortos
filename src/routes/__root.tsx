@@ -80,16 +80,36 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Cohort OS — Learn, Contribute, Compete" },
-      { name: "description", content: "The gamified home base for the Girls Leading Tech DSA cohort. Track XP, climb leaderboards, join discussions, and complete challenges." },
+      {
+        name: "description",
+        content:
+          "The gamified home base for the Girls Leading Tech DSA cohort. Track XP, climb leaderboards, join discussions, and complete challenges.",
+      },
       { name: "author", content: "Girls Leading Tech" },
       { property: "og:title", content: "Cohort OS — Learn, Contribute, Compete" },
-      { property: "og:description", content: "The gamified home base for the Girls Leading Tech DSA cohort. Track XP, climb leaderboards, join discussions, and complete challenges." },
+      {
+        property: "og:description",
+        content:
+          "The gamified home base for the Girls Leading Tech DSA cohort. Track XP, climb leaderboards, join discussions, and complete challenges.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "Cohort OS — Learn, Contribute, Compete" },
-      { name: "twitter:description", content: "The gamified home base for the Girls Leading Tech DSA cohort. Track XP, climb leaderboards, join discussions, and complete challenges." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/44608faa-2198-4d8e-9b29-d67839fdbf68/id-preview-f0d10d89--8119ebb6-ab15-4dba-9aa9-edc7257ec59b.lovable.app-1783189218134.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/44608faa-2198-4d8e-9b29-d67839fdbf68/id-preview-f0d10d89--8119ebb6-ab15-4dba-9aa9-edc7257ec59b.lovable.app-1783189218134.png" },
+      {
+        name: "twitter:description",
+        content:
+          "The gamified home base for the Girls Leading Tech DSA cohort. Track XP, climb leaderboards, join discussions, and complete challenges.",
+      },
+      {
+        property: "og:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/44608faa-2198-4d8e-9b29-d67839fdbf68/id-preview-f0d10d89--8119ebb6-ab15-4dba-9aa9-edc7257ec59b.lovable.app-1783189218134.png",
+      },
+      {
+        name: "twitter:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/44608faa-2198-4d8e-9b29-d67839fdbf68/id-preview-f0d10d89--8119ebb6-ab15-4dba-9aa9-edc7257ec59b.lovable.app-1783189218134.png",
+      },
     ],
     links: [
       {

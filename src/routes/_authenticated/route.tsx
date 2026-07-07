@@ -1,6 +1,28 @@
-import { createFileRoute, Outlet, redirect, Link, useRouter, useRouterState } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Outlet,
+  redirect,
+  Link,
+  useRouter,
+  useRouterState,
+} from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { Home, User, LogOut, Rss, MessagesSquare, Target, Trophy, Shield, Users, BookOpen, Bell, MoreHorizontal, X, UsersRound } from "lucide-react";
+import {
+  Home,
+  User,
+  LogOut,
+  Rss,
+  MessagesSquare,
+  Target,
+  Trophy,
+  Shield,
+  Users,
+  BookOpen,
+  Bell,
+  MoreHorizontal,
+  X,
+  UsersRound,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -43,8 +65,13 @@ export const Route = createFileRoute("/_authenticated")({
     // Load role for admin nav
     const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", user.id);
     const isAdmin = (roles ?? []).some((r) => r.role === "admin");
-    const { data: pr } = await supabase.from("profiles").select("primary_role").eq("id", user.id).maybeSingle();
-    const primaryRole = ((pr as { primary_role?: string | null } | null)?.primary_role ?? null) as "mentee" | "mentor" | "team_member" | null;
+    const { data: pr } = await supabase
+      .from("profiles")
+      .select("primary_role")
+      .eq("id", user.id)
+      .maybeSingle();
+    const primaryRole = ((pr as { primary_role?: string | null } | null)?.primary_role ?? null) as
+      "mentee" | "mentor" | "team_member" | null;
     return { user, isAdmin, onboarded: hasAllRequired, primaryRole };
   },
   component: AuthedLayout,
@@ -121,12 +148,17 @@ function NotificationBell({ userId }: { userId: string }) {
         <div className="absolute right-0 top-full mt-2 w-80 max-h-96 overflow-y-auto rounded-xl border bg-card shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-200">
           <div className="flex items-center justify-between border-b px-4 py-3">
             <h3 className="text-sm font-semibold">Notifications</h3>
-            <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground">
+            <button
+              onClick={() => setOpen(false)}
+              className="text-muted-foreground hover:text-foreground"
+            >
               <X className="h-4 w-4" />
             </button>
           </div>
           {(notifications ?? []).length === 0 ? (
-            <div className="px-4 py-8 text-center text-sm text-muted-foreground">No notifications yet 🔔</div>
+            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+              No notifications yet 🔔
+            </div>
           ) : (
             <div className="divide-y">
               {(notifications ?? []).map((n) => (
@@ -137,7 +169,9 @@ function NotificationBell({ userId }: { userId: string }) {
                   className={`block px-4 py-3 hover:bg-muted/50 transition ${!n.is_read ? "bg-primary/5" : ""}`}
                 >
                   <p className="text-sm font-medium">{n.title}</p>
-                  {n.body && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.body}</p>}
+                  {n.body && (
+                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.body}</p>
+                  )}
                   <p className="text-[10px] text-muted-foreground mt-1">
                     {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
                   </p>
@@ -172,11 +206,13 @@ function AuthedLayout() {
         { to: "/dashboard", label: "Dashboard", icon: Home },
         { to: "/feed", label: "Feed", icon: Rss },
         { to: "/discussions", label: "Discussions", icon: MessagesSquare },
-          { to: "/pods", label: "Pods", icon: UsersRound },
+        { to: "/pods", label: "Pods", icon: UsersRound },
         { to: "/challenges", label: "Challenges", icon: Target },
         { to: "/leaderboard", label: "Leaderboard", icon: Trophy },
         { to: "/resources", label: "Resources", icon: BookOpen },
-        ...(primaryRole === "mentee" ? [{ to: "/speed-networking", label: "Networking", icon: Users }] : []),
+        ...(primaryRole === "mentee"
+          ? [{ to: "/speed-networking", label: "Networking", icon: Users }]
+          : []),
         { to: "/profile", label: "Profile", icon: User },
         ...(isAdmin ? [{ to: "/admin", label: "Admin", icon: Shield }] : []),
       ]
@@ -216,7 +252,12 @@ function AuthedLayout() {
                 );
               })}
               <NotificationBell userId={user.id} />
-              <Button variant="ghost" size="sm" onClick={signOut} className="ml-1 text-muted-foreground">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={signOut}
+                className="ml-1 text-muted-foreground"
+              >
                 <LogOut className="h-4 w-4" />
                 <span className="hidden sm:inline ml-2">Sign out</span>
               </Button>
@@ -245,7 +286,12 @@ function AuthedLayout() {
           </Link>
           <div className="flex items-center gap-1">
             <NotificationBell userId={user.id} />
-            <Button variant="ghost" size="sm" onClick={signOut} className="text-muted-foreground h-9 w-9 p-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={signOut}
+              className="text-muted-foreground h-9 w-9 p-0"
+            >
               <LogOut className="h-4 w-4" />
             </Button>
           </div>

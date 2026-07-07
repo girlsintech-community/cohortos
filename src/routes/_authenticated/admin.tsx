@@ -8,9 +8,33 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, CheckCircle2, XCircle, Trash2, Users, Rss, MessagesSquare, Target, Trophy, Flame, Heart, Mail, BookOpen, Search, UsersRound, Shield, Plus } from "lucide-react";
+import {
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  Trash2,
+  Users,
+  Rss,
+  MessagesSquare,
+  Target,
+  Trophy,
+  Flame,
+  Heart,
+  Mail,
+  BookOpen,
+  Search,
+  UsersRound,
+  Shield,
+  Plus,
+} from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/admin")({
@@ -25,7 +49,9 @@ function AdminPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Admin</h1>
-        <p className="text-muted-foreground">Manage challenges, submissions, allowlist, and resources.</p>
+        <p className="text-muted-foreground">
+          Manage challenges, submissions, allowlist, and resources.
+        </p>
       </div>
       <Tabs defaultValue="overview">
         <TabsList className="flex-wrap">
@@ -37,13 +63,27 @@ function AdminPage() {
           <TabsTrigger value="allowlist">Allowlist</TabsTrigger>
           <TabsTrigger value="resources">Resources</TabsTrigger>
         </TabsList>
-        <TabsContent value="overview" className="mt-4"><OverviewPanel /></TabsContent>
-        <TabsContent value="members" className="mt-4"><MembersPanel /></TabsContent>
-        <TabsContent value="pods" className="mt-4"><PodsPanel /></TabsContent>
-        <TabsContent value="submissions" className="mt-4"><SubmissionsPanel /></TabsContent>
-        <TabsContent value="challenges" className="mt-4"><ChallengesPanel /></TabsContent>
-        <TabsContent value="allowlist" className="mt-4"><AllowlistPanel /></TabsContent>
-        <TabsContent value="resources" className="mt-4"><ResourcesPanel /></TabsContent>
+        <TabsContent value="overview" className="mt-4">
+          <OverviewPanel />
+        </TabsContent>
+        <TabsContent value="members" className="mt-4">
+          <MembersPanel />
+        </TabsContent>
+        <TabsContent value="pods" className="mt-4">
+          <PodsPanel />
+        </TabsContent>
+        <TabsContent value="submissions" className="mt-4">
+          <SubmissionsPanel />
+        </TabsContent>
+        <TabsContent value="challenges" className="mt-4">
+          <ChallengesPanel />
+        </TabsContent>
+        <TabsContent value="allowlist" className="mt-4">
+          <AllowlistPanel />
+        </TabsContent>
+        <TabsContent value="resources" className="mt-4">
+          <ResourcesPanel />
+        </TabsContent>
       </Tabs>
     </div>
   );
@@ -54,7 +94,19 @@ function OverviewPanel() {
     queryKey: ["admin", "overview"],
     queryFn: async () => {
       const heads = { count: "exact" as const, head: true };
-      const [members, onboarded, posts, likes, discussions, replies, challenges, subs, subsPending, subsApproved, xpRow] = await Promise.all([
+      const [
+        members,
+        onboarded,
+        posts,
+        likes,
+        discussions,
+        replies,
+        challenges,
+        subs,
+        subsPending,
+        subsApproved,
+        xpRow,
+      ] = await Promise.all([
         supabase.from("profiles").select("*", heads),
         supabase.from("profiles").select("*", heads).eq("onboarded", true),
         supabase.from("posts").select("*", heads),
@@ -84,14 +136,29 @@ function OverviewPanel() {
     },
   });
 
-  if (isLoading || !data) return <div className="grid place-items-center py-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
+  if (isLoading || !data)
+    return (
+      <div className="grid place-items-center py-10">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
 
   const stats = [
     { icon: Users, label: "Members", value: data.members, sub: `${data.onboarded} onboarded` },
     { icon: Rss, label: "Posts", value: data.posts, sub: `${data.likes} likes` },
-    { icon: MessagesSquare, label: "Discussions", value: data.discussions, sub: `${data.replies} replies` },
+    {
+      icon: MessagesSquare,
+      label: "Discussions",
+      value: data.discussions,
+      sub: `${data.replies} replies`,
+    },
     { icon: Target, label: "Challenges", value: data.challenges, sub: `${data.subs} submissions` },
-    { icon: CheckCircle2, label: "Approved", value: data.subsApproved, sub: `${data.subsPending} pending` },
+    {
+      icon: CheckCircle2,
+      label: "Approved",
+      value: data.subsApproved,
+      sub: `${data.subsPending} pending`,
+    },
     { icon: Flame, label: "Total XP", value: data.totalXp, sub: "awarded across cohort" },
   ];
 
@@ -105,7 +172,9 @@ function OverviewPanel() {
               <p className="mt-1 text-3xl font-bold">{s.value.toLocaleString()}</p>
               <p className="text-xs text-muted-foreground mt-1">{s.sub}</p>
             </div>
-            <div className="grid h-10 w-10 place-items-center rounded-lg bg-primary/10 text-primary"><s.icon className="h-5 w-5" /></div>
+            <div className="grid h-10 w-10 place-items-center rounded-lg bg-primary/10 text-primary">
+              <s.icon className="h-5 w-5" />
+            </div>
           </CardContent>
         </Card>
       ))}
@@ -120,7 +189,9 @@ function MembersPanel() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, display_name, username, avatar_url, college, branch, graduation_year, city, state, xp, level, streak, onboarded, created_at, linkedin_url, github_url, primary_role")
+        .select(
+          "id, display_name, username, avatar_url, college, branch, graduation_year, city, state, xp, level, streak, onboarded, created_at, linkedin_url, github_url, primary_role",
+        )
         .order("xp", { ascending: false })
         .limit(500);
       if (error) throw error;
@@ -130,14 +201,25 @@ function MembersPanel() {
 
   const setRole = useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
-      const { error } = await supabase.rpc("set_user_primary_role", { _target: userId, _role: role });
+      const { error } = await supabase.rpc("set_user_primary_role", {
+        _target: userId,
+        _role: role,
+      });
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Role updated"); qc.invalidateQueries({ queryKey: ["admin", "members"] }); },
+    onSuccess: () => {
+      toast.success("Role updated");
+      qc.invalidateQueries({ queryKey: ["admin", "members"] });
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  if (isLoading) return <div className="grid place-items-center py-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
+  if (isLoading)
+    return (
+      <div className="grid place-items-center py-10">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
   if (!data?.length) return <p className="text-sm text-muted-foreground">No members yet.</p>;
 
   return (
@@ -163,11 +245,19 @@ function MembersPanel() {
               <tr key={m.id} className="border-b hover:bg-muted/30">
                 <td className="p-3">
                   <p className="font-medium">{m.display_name ?? "—"}</p>
-                  <p className="text-xs text-muted-foreground">{(m as any).username ? `@${(m as any).username} · ` : ""}Joined {new Date(m.created_at).toLocaleDateString()}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {(m as any).username ? `@${(m as any).username} · ` : ""}Joined{" "}
+                    {new Date(m.created_at).toLocaleDateString()}
+                  </p>
                 </td>
                 <td className="p-3">
-                  <Select value={((m as any).primary_role) ?? "mentee"} onValueChange={(v) => setRole.mutate({ userId: m.id, role: v })}>
-                    <SelectTrigger className="h-8 w-32 text-xs"><SelectValue /></SelectTrigger>
+                  <Select
+                    value={(m as any).primary_role ?? "mentee"}
+                    onValueChange={(v) => setRole.mutate({ userId: m.id, role: v })}
+                  >
+                    <SelectTrigger className="h-8 w-32 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="mentee">Mentee</SelectItem>
                       <SelectItem value="mentor">Mentor</SelectItem>
@@ -175,20 +265,44 @@ function MembersPanel() {
                     </SelectContent>
                   </Select>
                 </td>
-                <td className="p-3">{m.college ?? "—"}<div className="text-xs text-muted-foreground">{m.branch ?? ""}</div></td>
+                <td className="p-3">
+                  {m.college ?? "—"}
+                  <div className="text-xs text-muted-foreground">{m.branch ?? ""}</div>
+                </td>
                 <td className="p-3">{[m.city, m.state].filter(Boolean).join(", ") || "—"}</td>
                 <td className="p-3">{m.graduation_year ?? "—"}</td>
                 <td className="p-3 text-right font-semibold">{(m.xp ?? 0).toLocaleString()}</td>
                 <td className="p-3 text-right">{m.level ?? 1}</td>
                 <td className="p-3 text-right">{m.streak ?? 0}</td>
                 <td className="p-3">
-                  <Badge variant={m.onboarded ? "default" : "outline"} className={m.onboarded ? "bg-success text-success-foreground" : ""}>
+                  <Badge
+                    variant={m.onboarded ? "default" : "outline"}
+                    className={m.onboarded ? "bg-success text-success-foreground" : ""}
+                  >
                     {m.onboarded ? "Active" : "Pending"}
                   </Badge>
                 </td>
                 <td className="p-3 text-xs space-x-2">
-                  {m.linkedin_url && <a className="text-primary hover:underline" href={m.linkedin_url} target="_blank" rel="noreferrer">LI</a>}
-                  {m.github_url && <a className="text-primary hover:underline" href={m.github_url} target="_blank" rel="noreferrer">GH</a>}
+                  {m.linkedin_url && (
+                    <a
+                      className="text-primary hover:underline"
+                      href={m.linkedin_url}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      LI
+                    </a>
+                  )}
+                  {m.github_url && (
+                    <a
+                      className="text-primary hover:underline"
+                      href={m.github_url}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      GH
+                    </a>
+                  )}
                 </td>
               </tr>
             ))}
@@ -201,12 +315,17 @@ function MembersPanel() {
 
 function SubmissionsPanel() {
   const qc = useQueryClient();
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [feedbackText, setFeedbackText] = useState("");
+
   const { data, isLoading } = useQuery({
     queryKey: ["admin", "submissions"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("challenge_submissions")
-        .select("id, status, solution_url, notes, created_at, user_id, challenges(title, xp_reward), profiles!challenge_submissions_user_profile_fkey(display_name)")
+        .select(
+          "id, status, solution_url, notes, created_at, user_id, screenshot_url, feedback, challenges(title, xp_reward), profiles!challenge_submissions_user_profile_fkey(display_name)",
+        )
         .order("created_at", { ascending: false })
         .limit(100);
       if (error) throw error;
@@ -219,19 +338,36 @@ function SubmissionsPanel() {
       const { error } = await supabase.rpc("approve_submission", { _submission_id: id });
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Approved & XP awarded"); qc.invalidateQueries(); },
+    onSuccess: () => {
+      toast.success("Approved & XP awarded");
+      qc.invalidateQueries();
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const reject = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("challenge_submissions").update({ status: "rejected" }).eq("id", id);
+    mutationFn: async ({ id, feedback }: { id: string; feedback: string }) => {
+      const { error } = await supabase
+        .from("challenge_submissions")
+        .update({ status: "rejected", feedback: feedback.trim() || null })
+        .eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Rejected"); qc.invalidateQueries(); },
+    onSuccess: () => {
+      toast.success("Rejected");
+      setRejectingId(null);
+      setFeedbackText("");
+      qc.invalidateQueries();
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
 
-  if (isLoading) return <div className="grid place-items-center py-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
+  if (isLoading)
+    return (
+      <div className="grid place-items-center py-10">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
   if (!data?.length) return <p className="text-muted-foreground text-sm">No submissions yet.</p>;
 
   return (
@@ -240,17 +376,121 @@ function SubmissionsPanel() {
         <Card key={s.id}>
           <CardContent className="pt-5 flex flex-col sm:flex-row sm:items-center gap-3">
             <div className="flex-1">
-              <p className="text-sm"><span className="font-semibold">{s.profiles?.display_name ?? "Someone"}</span> → <span className="font-medium">{s.challenges?.title}</span> <span className="text-xs text-muted-foreground">(+{s.challenges?.xp_reward} XP)</span></p>
-              {s.solution_url && <a href={s.solution_url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline block">{s.solution_url}</a>}
-              {s.notes && <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">{s.notes}</p>}
+              <p className="text-sm">
+                <span className="font-semibold">{s.profiles?.display_name ?? "Someone"}</span> →{" "}
+                <span className="font-medium">{s.challenges?.title}</span>{" "}
+                <span className="text-xs text-muted-foreground">
+                  (+{s.challenges?.xp_reward} XP)
+                </span>
+              </p>
+              {s.solution_url && (
+                <a
+                  href={s.solution_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs text-primary hover:underline block"
+                >
+                  {s.solution_url}
+                </a>
+              )}
+              {s.screenshot_url && (
+                <div className="mt-2">
+                  <a
+                    href={s.screenshot_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-block border rounded hover:opacity-90 transition max-w-[200px]"
+                  >
+                    <img
+                      src={s.screenshot_url}
+                      alt="Challenge screenshot"
+                      className="max-h-24 object-contain rounded"
+                    />
+                    <span className="text-[10px] text-muted-foreground block text-center py-0.5 border-t bg-muted/20">
+                      View full screenshot
+                    </span>
+                  </a>
+                </div>
+              )}
+              {s.notes && (
+                <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">{s.notes}</p>
+              )}
             </div>
             {s.status === "submitted" ? (
-              <div className="flex gap-2">
-                <Button size="sm" onClick={() => approve.mutate(s.id)} disabled={approve.isPending} className="bg-success text-success-foreground hover:bg-success/90"><CheckCircle2 className="h-4 w-4 mr-1" /> Approve</Button>
-                <Button size="sm" variant="outline" onClick={() => reject.mutate(s.id)} disabled={reject.isPending}><XCircle className="h-4 w-4 mr-1" /> Reject</Button>
+              <div className="flex flex-col gap-2">
+                {rejectingId === s.id ? (
+                  <div className="flex flex-col gap-2 min-w-[220px]">
+                    <Textarea
+                      placeholder="Add feedback/reason..."
+                      value={feedbackText}
+                      onChange={(e) => setFeedbackText(e.target.value)}
+                      className="text-xs min-h-[60px]"
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => reject.mutate({ id: s.id, feedback: feedbackText })}
+                        disabled={reject.isPending}
+                        className="text-xs flex-1"
+                      >
+                        Confirm Reject
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setRejectingId(null);
+                          setFeedbackText("");
+                        }}
+                        className="text-xs flex-1"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => approve.mutate(s.id)}
+                      disabled={approve.isPending}
+                      className="bg-success text-success-foreground hover:bg-success/90"
+                    >
+                      <CheckCircle2 className="h-4 w-4 mr-1" /> Approve
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setRejectingId(s.id);
+                        setFeedbackText("");
+                      }}
+                      disabled={reject.isPending}
+                    >
+                      <XCircle className="h-4 w-4 mr-1" /> Reject
+                    </Button>
+                  </div>
+                )}
               </div>
             ) : (
-              <Badge variant={s.status === "approved" ? "default" : "outline"} className={s.status === "approved" ? "bg-success text-success-foreground" : "text-destructive"}>{s.status}</Badge>
+              <div className="text-right">
+                <Badge
+                  variant={s.status === "approved" ? "default" : "outline"}
+                  className={
+                    s.status === "approved"
+                      ? "bg-success text-success-foreground"
+                      : "text-destructive"
+                  }
+                >
+                  {s.status}
+                </Badge>
+                {s.status === "rejected" && s.feedback && (
+                  <p className="text-[11px] text-destructive mt-1 max-w-[250px] break-words text-left sm:text-right">
+                    <strong>Feedback:</strong> {s.feedback}
+                  </p>
+                )}
+              </div>
             )}
           </CardContent>
         </Card>
@@ -270,7 +510,10 @@ function ChallengesPanel() {
   const { data: challenges } = useQuery({
     queryKey: ["admin", "challenges"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("challenges").select("*").order("created_at", { ascending: false });
+      const { data, error } = await supabase
+        .from("challenges")
+        .select("*")
+        .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
@@ -280,13 +523,19 @@ function ChallengesPanel() {
     mutationFn: async () => {
       if (!title.trim() || !description.trim()) throw new Error("Title and description required");
       const { error } = await supabase.from("challenges").insert({
-        title: title.trim(), description: description.trim(), link: link.trim() || null,
-        difficulty, xp_reward: Number(xp) || 50,
+        title: title.trim(),
+        description: description.trim(),
+        link: link.trim() || null,
+        difficulty,
+        xp_reward: Number(xp) || 50,
       });
       if (error) throw error;
     },
     onSuccess: () => {
-      setTitle(""); setDescription(""); setLink(""); setXp("50");
+      setTitle("");
+      setDescription("");
+      setLink("");
+      setXp("50");
       toast.success("Challenge created");
       qc.invalidateQueries();
     },
@@ -295,7 +544,10 @@ function ChallengesPanel() {
 
   const toggle = useMutation({
     mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
-      const { error } = await supabase.from("challenges").update({ is_active: active }).eq("id", id);
+      const { error } = await supabase
+        .from("challenges")
+        .update({ is_active: active })
+        .eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries(),
@@ -312,15 +564,37 @@ function ChallengesPanel() {
   return (
     <div className="grid gap-6 md:grid-cols-2">
       <Card>
-        <CardHeader><CardTitle>New challenge</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>New challenge</CardTitle>
+        </CardHeader>
         <CardContent className="space-y-3">
-          <div className="space-y-1.5"><Label>Title</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} /></div>
-          <div className="space-y-1.5"><Label>Description</Label><Textarea rows={4} value={description} onChange={(e) => setDescription(e.target.value)} /></div>
-          <div className="space-y-1.5"><Label>Problem link</Label><Input value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://leetcode.com/…" /></div>
+          <div className="space-y-1.5">
+            <Label>Title</Label>
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Description</Label>
+            <Textarea
+              rows={4}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Problem link</Label>
+            <Input
+              value={link}
+              onChange={(e) => setLink(e.target.value)}
+              placeholder="https://leetcode.com/…"
+            />
+          </div>
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5"><Label>Difficulty</Label>
+            <div className="space-y-1.5">
+              <Label>Difficulty</Label>
               <Select value={difficulty} onValueChange={(v) => setDifficulty(v as any)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="easy">Easy</SelectItem>
                   <SelectItem value="medium">Medium</SelectItem>
@@ -328,26 +602,46 @@ function ChallengesPanel() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5"><Label>XP reward</Label><Input type="number" value={xp} onChange={(e) => setXp(e.target.value)} /></div>
+            <div className="space-y-1.5">
+              <Label>XP reward</Label>
+              <Input type="number" value={xp} onChange={(e) => setXp(e.target.value)} />
+            </div>
           </div>
-          <Button onClick={() => create.mutate()} disabled={create.isPending} className="w-full" style={{ background: "var(--gradient-primary)" }}>
+          <Button
+            onClick={() => create.mutate()}
+            disabled={create.isPending}
+            className="w-full"
+            style={{ background: "var(--gradient-primary)" }}
+          >
             {create.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Create
           </Button>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>All challenges</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>All challenges</CardTitle>
+        </CardHeader>
         <CardContent className="space-y-2">
           {challenges?.length === 0 && <p className="text-sm text-muted-foreground">None yet.</p>}
           {challenges?.map((c) => (
             <div key={c.id} className="flex items-center gap-2 rounded border p-2">
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">{c.title}</p>
-                <p className="text-xs text-muted-foreground">{c.difficulty} · +{c.xp_reward} XP {c.is_active ? "" : "· inactive"}</p>
+                <p className="text-xs text-muted-foreground">
+                  {c.difficulty} · +{c.xp_reward} XP {c.is_active ? "" : "· inactive"}
+                </p>
               </div>
-              <Button size="sm" variant="outline" onClick={() => toggle.mutate({ id: c.id, active: !c.is_active })}>{c.is_active ? "Hide" : "Show"}</Button>
-              <Button size="sm" variant="ghost" onClick={() => remove.mutate(c.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => toggle.mutate({ id: c.id, active: !c.is_active })}
+              >
+                {c.is_active ? "Hide" : "Show"}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => remove.mutate(c.id)}>
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
             </div>
           ))}
         </CardContent>
@@ -369,9 +663,18 @@ function PodsPanel() {
   const { data: pods } = useQuery({
     queryKey: ["admin", "pods"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("pods").select("id, name, description, mentor_id, created_at").order("created_at", { ascending: false });
+      const { data, error } = await supabase
+        .from("pods")
+        .select("id, name, description, mentor_id, created_at")
+        .order("created_at", { ascending: false });
       if (error) throw error;
-      return data as Array<{ id: string; name: string; description: string | null; mentor_id: string | null; created_at: string }>;
+      return data as Array<{
+        id: string;
+        name: string;
+        description: string | null;
+        mentor_id: string | null;
+        created_at: string;
+      }>;
     },
   });
 
@@ -381,7 +684,9 @@ function PodsPanel() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("pod_members")
-        .select("id, user_id, member_role, profiles!pod_members_user_id_fkey(display_name, username, avatar_url)")
+        .select(
+          "id, user_id, member_role, profiles!pod_members_user_id_fkey(display_name, username, avatar_url)",
+        )
         .eq("pod_id", selectedPodId!);
       if (error) throw error;
       return data as any[];
@@ -389,7 +694,9 @@ function PodsPanel() {
   });
 
   async function findProfileByEmail(email: string): Promise<string | null> {
-    const { data, error } = await supabase.rpc("find_profile_by_email" as any, { _email: email.trim().toLowerCase() });
+    const { data, error } = await supabase.rpc("find_profile_by_email" as any, {
+      _email: email.trim().toLowerCase(),
+    });
     if (error) return null;
     return (data as string | null) ?? null;
   }
@@ -402,14 +709,22 @@ function PodsPanel() {
         mentorId = await findProfileByEmail(mentorEmail);
         if (!mentorId) throw new Error("Mentor email not found in profiles");
       }
-      const { data, error } = await supabase.from("pods").insert({ name: name.trim(), description: description.trim() || null, mentor_id: mentorId }).select("id").single();
+      const { data, error } = await supabase
+        .from("pods")
+        .insert({ name: name.trim(), description: description.trim() || null, mentor_id: mentorId })
+        .select("id")
+        .single();
       if (error) throw error;
       if (mentorId) {
-        await supabase.from("pod_members").insert({ pod_id: data.id, user_id: mentorId, member_role: "mentor" });
+        await supabase
+          .from("pod_members")
+          .insert({ pod_id: data.id, user_id: mentorId, member_role: "mentor" });
       }
     },
     onSuccess: () => {
-      setName(""); setDescription(""); setMentorEmail("");
+      setName("");
+      setDescription("");
+      setMentorEmail("");
       toast.success("Pod created");
       qc.invalidateQueries({ queryKey: ["admin", "pods"] });
     },
@@ -422,7 +737,9 @@ function PodsPanel() {
       if (!addEmail.trim()) throw new Error("Enter an email");
       const uid = await findProfileByEmail(addEmail);
       if (!uid) throw new Error("No profile found for that email");
-      const { error } = await supabase.from("pod_members").insert({ pod_id: selectedPodId, user_id: uid, member_role: addRole });
+      const { error } = await supabase
+        .from("pod_members")
+        .insert({ pod_id: selectedPodId, user_id: uid, member_role: addRole });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -457,12 +774,39 @@ function PodsPanel() {
     <div className="grid gap-6 md:grid-cols-2">
       <div className="space-y-4">
         <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2"><UsersRound className="h-5 w-5 text-primary" /> Create pod</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <UsersRound className="h-5 w-5 text-primary" /> Create pod
+            </CardTitle>
+          </CardHeader>
           <CardContent className="space-y-3">
-            <div className="space-y-1.5"><Label>Pod name</Label><Input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} /></div>
-            <div className="space-y-1.5"><Label>Description (optional)</Label><Textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={280} /></div>
-            <div className="space-y-1.5"><Label>Mentor email (optional)</Label><Input value={mentorEmail} onChange={(e) => setMentorEmail(e.target.value)} placeholder="mentor@example.com" /></div>
-            <Button onClick={() => createPod.mutate()} disabled={createPod.isPending} className="w-full" style={{ background: "var(--gradient-primary)" }}>
+            <div className="space-y-1.5">
+              <Label>Pod name</Label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Description (optional)</Label>
+              <Textarea
+                rows={2}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                maxLength={280}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Mentor email (optional)</Label>
+              <Input
+                value={mentorEmail}
+                onChange={(e) => setMentorEmail(e.target.value)}
+                placeholder="mentor@example.com"
+              />
+            </div>
+            <Button
+              onClick={() => createPod.mutate()}
+              disabled={createPod.isPending}
+              className="w-full"
+              style={{ background: "var(--gradient-primary)" }}
+            >
               {createPod.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               <Plus className="mr-2 h-4 w-4" /> Create pod
             </Button>
@@ -470,16 +814,33 @@ function PodsPanel() {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>All pods ({(pods ?? []).length})</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>All pods ({(pods ?? []).length})</CardTitle>
+          </CardHeader>
           <CardContent className="space-y-1 max-h-96 overflow-y-auto">
-            {(pods ?? []).length === 0 && <p className="text-sm text-muted-foreground">None yet.</p>}
+            {(pods ?? []).length === 0 && (
+              <p className="text-sm text-muted-foreground">None yet.</p>
+            )}
             {(pods ?? []).map((p) => (
-              <div key={p.id} className={`flex items-center gap-2 rounded border p-2 cursor-pointer ${selectedPodId === p.id ? "bg-primary/5 border-primary/40" : ""}`} onClick={() => setSelectedPodId(p.id)}>
+              <div
+                key={p.id}
+                className={`flex items-center gap-2 rounded border p-2 cursor-pointer ${selectedPodId === p.id ? "bg-primary/5 border-primary/40" : ""}`}
+                onClick={() => setSelectedPodId(p.id)}
+              >
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{p.name}</p>
-                  {p.description && <p className="text-xs text-muted-foreground truncate">{p.description}</p>}
+                  {p.description && (
+                    <p className="text-xs text-muted-foreground truncate">{p.description}</p>
+                  )}
                 </div>
-                <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); if (confirm(`Delete pod "${p.name}"?`)) deletePod.mutate(p.id); }}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (confirm(`Delete pod "${p.name}"?`)) deletePod.mutate(p.id);
+                  }}
+                >
                   <Trash2 className="h-3.5 w-3.5 text-destructive" />
                 </Button>
               </div>
@@ -489,38 +850,65 @@ function PodsPanel() {
       </div>
 
       <Card>
-        <CardHeader><CardTitle>{selectedPodId ? "Manage members" : "Select a pod to manage members"}</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>
+            {selectedPodId ? "Manage members" : "Select a pod to manage members"}
+          </CardTitle>
+        </CardHeader>
         <CardContent className="space-y-3">
           {!selectedPodId ? (
             <p className="text-sm text-muted-foreground">Click a pod on the left to add members.</p>
           ) : (
             <>
               <div className="flex gap-2">
-                <Input value={addEmail} onChange={(e) => setAddEmail(e.target.value)} placeholder="member@example.com" />
+                <Input
+                  value={addEmail}
+                  onChange={(e) => setAddEmail(e.target.value)}
+                  placeholder="member@example.com"
+                />
                 <Select value={addRole} onValueChange={(v) => setAddRole(v as any)}>
-                  <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="mentee">Mentee</SelectItem>
                     <SelectItem value="mentor">Mentor</SelectItem>
                     <SelectItem value="team_member">Team</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button onClick={() => addMember.mutate()} disabled={addMember.isPending}>Add</Button>
+                <Button onClick={() => addMember.mutate()} disabled={addMember.isPending}>
+                  Add
+                </Button>
               </div>
-              <p className="text-xs text-muted-foreground">Suggested: 1 mentor + up to 7 mentees. Team members can assist.</p>
+              <p className="text-xs text-muted-foreground">
+                Suggested: 1 mentor + up to 7 mentees. Team members can assist.
+              </p>
               <div className="space-y-1 max-h-80 overflow-y-auto">
                 {(podMembers ?? []).length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-4">No members yet.</p>
-                ) : (podMembers ?? []).map((m: any) => (
-                  <div key={m.id} className="flex items-center gap-2 rounded border p-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{m.profiles?.display_name ?? "—"}</p>
-                      <p className="text-[10px] text-muted-foreground">{m.profiles?.username ? `@${m.profiles.username}` : ""}</p>
+                ) : (
+                  (podMembers ?? []).map((m: any) => (
+                    <div key={m.id} className="flex items-center gap-2 rounded border p-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">
+                          {m.profiles?.display_name ?? "—"}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {m.profiles?.username ? `@${m.profiles.username}` : ""}
+                        </p>
+                      </div>
+                      <Badge
+                        variant={m.member_role === "mentor" ? "default" : "outline"}
+                        className="text-[10px]"
+                      >
+                        {m.member_role}
+                      </Badge>
+                      <Button size="sm" variant="ghost" onClick={() => removeMember.mutate(m.id)}>
+                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                      </Button>
                     </div>
-                    <Badge variant={m.member_role === "mentor" ? "default" : "outline"} className="text-[10px]">{m.member_role}</Badge>
-                    <Button size="sm" variant="ghost" onClick={() => removeMember.mutate(m.id)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </>
           )}
@@ -567,10 +955,15 @@ function AllowlistPanel() {
 
   const addBulk = useMutation({
     mutationFn: async () => {
-      const lines = bulkEmails.split(/[,\n;]+/).map((l) => l.trim().toLowerCase()).filter((l) => l && l.includes("@"));
+      const lines = bulkEmails
+        .split(/[,\n;]+/)
+        .map((l) => l.trim().toLowerCase())
+        .filter((l) => l && l.includes("@"));
       if (lines.length === 0) throw new Error("No valid emails found");
       const rows = lines.map((email) => ({ email }));
-      const { error } = await supabase.from("allowed_emails").upsert(rows, { onConflict: "email", ignoreDuplicates: true });
+      const { error } = await supabase
+        .from("allowed_emails")
+        .upsert(rows, { onConflict: "email", ignoreDuplicates: true });
       if (error) throw error;
       return lines.length;
     },
@@ -594,26 +987,55 @@ function AllowlistPanel() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const filtered = (emails ?? []).filter((e) => !searchQ.trim() || e.email.toLowerCase().includes(searchQ.toLowerCase()));
+  const filtered = (emails ?? []).filter(
+    (e) => !searchQ.trim() || e.email.toLowerCase().includes(searchQ.toLowerCase()),
+  );
 
   return (
     <div className="grid gap-6 md:grid-cols-2">
       <div className="space-y-4">
         <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2"><Mail className="h-5 w-5 text-primary" /> Add email</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5 text-primary" /> Add email
+            </CardTitle>
+          </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex gap-2">
-              <Input value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="user@gmail.com" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addOne.mutate(); } }} />
-              <Button onClick={() => addOne.mutate()} disabled={addOne.isPending}>Add</Button>
+              <Input
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                placeholder="user@gmail.com"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addOne.mutate();
+                  }
+                }}
+              />
+              <Button onClick={() => addOne.mutate()} disabled={addOne.isPending}>
+                Add
+              </Button>
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Bulk import</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>Bulk import</CardTitle>
+          </CardHeader>
           <CardContent className="space-y-3">
-            <Textarea rows={6} value={bulkEmails} onChange={(e) => setBulkEmails(e.target.value)} placeholder="Paste emails — one per line, comma-separated, or semicolon-separated" />
-            <Button onClick={() => addBulk.mutate()} disabled={addBulk.isPending} className="w-full">
+            <Textarea
+              rows={6}
+              value={bulkEmails}
+              onChange={(e) => setBulkEmails(e.target.value)}
+              placeholder="Paste emails — one per line, comma-separated, or semicolon-separated"
+            />
+            <Button
+              onClick={() => addBulk.mutate()}
+              disabled={addBulk.isPending}
+              className="w-full"
+            >
               {addBulk.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Import emails
             </Button>
@@ -626,7 +1048,12 @@ function AllowlistPanel() {
           <CardTitle>Allowed emails ({(emails ?? []).length})</CardTitle>
           <div className="relative mt-2">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input value={searchQ} onChange={(e) => setSearchQ(e.target.value)} placeholder="Search…" className="pl-9" />
+            <Input
+              value={searchQ}
+              onChange={(e) => setSearchQ(e.target.value)}
+              placeholder="Search…"
+              className="pl-9"
+            />
           </div>
         </CardHeader>
         <CardContent className="max-h-96 overflow-y-auto space-y-1">
@@ -636,10 +1063,15 @@ function AllowlistPanel() {
             <p className="text-sm text-muted-foreground text-center py-4">No emails found.</p>
           ) : (
             filtered.map((e) => (
-              <div key={e.id} className="flex items-center justify-between rounded px-2 py-1.5 hover:bg-muted/40 text-sm group">
+              <div
+                key={e.id}
+                className="flex items-center justify-between rounded px-2 py-1.5 hover:bg-muted/40 text-sm group"
+              >
                 <span className="truncate">{e.email}</span>
                 <button
-                  onClick={() => { if (confirm(`Remove ${e.email}?`)) remove.mutate(e.id); }}
+                  onClick={() => {
+                    if (confirm(`Remove ${e.email}?`)) remove.mutate(e.id);
+                  }}
                   className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -664,9 +1096,20 @@ function ResourcesPanel() {
   const { data: resources } = useQuery({
     queryKey: ["admin", "resources"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("resources").select("*").order("created_at", { ascending: false });
+      const { data, error } = await supabase
+        .from("resources")
+        .select("*")
+        .order("created_at", { ascending: false });
       if (error) throw error;
-      return data as Array<{ id: string; title: string; description: string | null; url: string; category: string; is_active: boolean; created_at: string }>;
+      return data as Array<{
+        id: string;
+        title: string;
+        description: string | null;
+        url: string;
+        category: string;
+        is_active: boolean;
+        created_at: string;
+      }>;
     },
   });
 
@@ -684,7 +1127,9 @@ function ResourcesPanel() {
       if (error) throw error;
     },
     onSuccess: () => {
-      setTitle(""); setDescription(""); setUrl("");
+      setTitle("");
+      setDescription("");
+      setUrl("");
       toast.success("Resource added");
       qc.invalidateQueries({ queryKey: ["admin", "resources"] });
       qc.invalidateQueries({ queryKey: ["resources"] });
@@ -718,14 +1163,34 @@ function ResourcesPanel() {
   return (
     <div className="grid gap-6 md:grid-cols-2">
       <Card>
-        <CardHeader><CardTitle className="flex items-center gap-2"><BookOpen className="h-5 w-5 text-primary" /> New resource</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BookOpen className="h-5 w-5 text-primary" /> New resource
+          </CardTitle>
+        </CardHeader>
         <CardContent className="space-y-3">
-          <div className="space-y-1.5"><Label>Title</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} /></div>
-          <div className="space-y-1.5"><Label>Description</Label><Textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} /></div>
-          <div className="space-y-1.5"><Label>URL</Label><Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" /></div>
-          <div className="space-y-1.5"><Label>Category</Label>
+          <div className="space-y-1.5">
+            <Label>Title</Label>
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Description</Label>
+            <Textarea
+              rows={3}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>URL</Label>
+            <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Category</Label>
             <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="General">General</SelectItem>
                 <SelectItem value="DSA">DSA</SelectItem>
@@ -735,25 +1200,57 @@ function ResourcesPanel() {
               </SelectContent>
             </Select>
           </div>
-          <Button onClick={() => create.mutate()} disabled={create.isPending} className="w-full" style={{ background: "var(--gradient-primary)" }}>
+          <Button
+            onClick={() => create.mutate()}
+            disabled={create.isPending}
+            className="w-full"
+            style={{ background: "var(--gradient-primary)" }}
+          >
             {create.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Add resource
           </Button>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>All resources ({(resources ?? []).length})</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>All resources ({(resources ?? []).length})</CardTitle>
+        </CardHeader>
         <CardContent className="space-y-2 max-h-96 overflow-y-auto">
-          {(resources ?? []).length === 0 && <p className="text-sm text-muted-foreground">None yet.</p>}
+          {(resources ?? []).length === 0 && (
+            <p className="text-sm text-muted-foreground">None yet.</p>
+          )}
           {(resources ?? []).map((r) => (
             <div key={r.id} className="flex items-start gap-2 rounded border p-2">
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">{r.title}</p>
-                <p className="text-xs text-muted-foreground">{r.category} {r.is_active ? "" : "· hidden"}</p>
-                <a href={r.url} target="_blank" rel="noreferrer" className="text-[11px] text-primary hover:underline truncate block">{r.url}</a>
+                <p className="text-xs text-muted-foreground">
+                  {r.category} {r.is_active ? "" : "· hidden"}
+                </p>
+                <a
+                  href={r.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[11px] text-primary hover:underline truncate block"
+                >
+                  {r.url}
+                </a>
               </div>
-              <Button size="sm" variant="outline" onClick={() => toggle.mutate({ id: r.id, active: !r.is_active })}>{r.is_active ? "Hide" : "Show"}</Button>
-              <Button size="sm" variant="ghost" onClick={() => { if (confirm("Delete?")) remove.mutate(r.id); }}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => toggle.mutate({ id: r.id, active: !r.is_active })}
+              >
+                {r.is_active ? "Hide" : "Show"}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  if (confirm("Delete?")) remove.mutate(r.id);
+                }}
+              >
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
             </div>
           ))}
         </CardContent>

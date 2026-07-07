@@ -15,7 +15,15 @@ export const Route = createFileRoute("/_authenticated/speed-networking")({
   component: SpeedNetworking,
 });
 
-type Partner = { id: string; display_name: string; avatar_url: string | null; college: string | null; linkedin_url: string | null; github_url: string | null; skills: string[] | null };
+type Partner = {
+  id: string;
+  display_name: string;
+  avatar_url: string | null;
+  college: string | null;
+  linkedin_url: string | null;
+  github_url: string | null;
+  skills: string[] | null;
+};
 type Match = { id: string; user_a: string; user_b: string; created_at: string };
 
 function SpeedNetworking() {
@@ -53,7 +61,11 @@ function SpeedNetworking() {
   const { data: inQueue } = useQuery({
     queryKey: ["speedQueue", user.id],
     queryFn: async () => {
-      const { data } = await supabase.from("speed_networking_queue").select("user_id").eq("user_id", user.id).maybeSingle();
+      const { data } = await supabase
+        .from("speed_networking_queue")
+        .select("user_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
       return !!data;
     },
   });
@@ -62,7 +74,11 @@ function SpeedNetworking() {
     mutationFn: async () => {
       const { data, error } = await supabase.rpc("request_speed_match");
       if (error) throw error;
-      return data as unknown as Array<{ match_id: string | null; partner_id: string | null; status: string }>;
+      return data as unknown as Array<{
+        match_id: string | null;
+        partner_id: string | null;
+        status: string;
+      }>;
     },
     onSuccess: (rows) => {
       const r = rows?.[0];
@@ -75,33 +91,57 @@ function SpeedNetworking() {
 
   const leave = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("speed_networking_queue").delete().eq("user_id", user.id);
+      const { error } = await supabase
+        .from("speed_networking_queue")
+        .delete()
+        .eq("user_id", user.id);
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Left the queue"); qc.invalidateQueries({ queryKey: ["speedQueue", user.id] }); },
+    onSuccess: () => {
+      toast.success("Left the queue");
+      qc.invalidateQueries({ queryKey: ["speedQueue", user.id] });
+    },
   });
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="text-center space-y-2">
-        <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl text-primary-foreground" style={{ background: "var(--gradient-primary)" }}>
+        <div
+          className="mx-auto grid h-14 w-14 place-items-center rounded-2xl text-primary-foreground"
+          style={{ background: "var(--gradient-primary)" }}
+        >
           <Users className="h-7 w-7" />
         </div>
         <h1 className="text-3xl font-bold">Speed Networking</h1>
-        <p className="text-muted-foreground">Get randomly paired with another mentee and hop on a short intro chat.</p>
+        <p className="text-muted-foreground">
+          Get randomly paired with another mentee and hop on a short intro chat.
+        </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-primary" /> Find a partner</CardTitle>
-          <CardDescription>Tap the button below — if someone else is waiting you'll be paired instantly, otherwise we'll queue you.</CardDescription>
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary" /> Find a partner
+          </CardTitle>
+          <CardDescription>
+            Tap the button below — if someone else is waiting you'll be paired instantly, otherwise
+            we'll queue you.
+          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-3">
-          <Button onClick={() => request.mutate()} disabled={request.isPending} style={{ background: "var(--gradient-primary)" }} className="text-primary-foreground">
-            {request.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} {inQueue ? "Refresh — try to match now" : "Find me a match"}
+          <Button
+            onClick={() => request.mutate()}
+            disabled={request.isPending}
+            style={{ background: "var(--gradient-primary)" }}
+            className="text-primary-foreground"
+          >
+            {request.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{" "}
+            {inQueue ? "Refresh — try to match now" : "Find me a match"}
           </Button>
           {inQueue && (
-            <Button variant="outline" onClick={() => leave.mutate()} disabled={leave.isPending}>Leave queue</Button>
+            <Button variant="outline" onClick={() => leave.mutate()} disabled={leave.isPending}>
+              Leave queue
+            </Button>
           )}
         </CardContent>
       </Card>
@@ -109,11 +149,17 @@ function SpeedNetworking() {
       <Card>
         <CardHeader>
           <CardTitle>Your matches</CardTitle>
-          <CardDescription>Reach out over LinkedIn or share contact to schedule a 15-minute intro.</CardDescription>
+          <CardDescription>
+            Reach out over LinkedIn or share contact to schedule a 15-minute intro.
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading ? <Loader2 className="h-5 w-5 animate-spin text-primary" /> : (matches ?? []).length === 0 ? (
-            <p className="text-sm text-muted-foreground">No matches yet. Hit the button above to find your first cohort sister to chat with. 💫</p>
+          {isLoading ? (
+            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+          ) : (matches ?? []).length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No matches yet. Hit the button above to find your first cohort sister to chat with. 💫
+            </p>
           ) : (
             <div className="space-y-3">
               {(matches ?? []).map((m) => {
@@ -123,15 +169,38 @@ function SpeedNetworking() {
                 const ini = (p.display_name || "?").slice(0, 2).toUpperCase();
                 return (
                   <div key={m.id} className="flex gap-3 rounded-lg border p-3">
-                    <Avatar className="h-12 w-12"><AvatarImage src={p.avatar_url ?? undefined} /><AvatarFallback className="bg-primary/10 text-primary">{ini}</AvatarFallback></Avatar>
+                    <Avatar className="h-12 w-12">
+                      <AvatarImage src={p.avatar_url ?? undefined} />
+                      <AvatarFallback className="bg-primary/10 text-primary">{ini}</AvatarFallback>
+                    </Avatar>
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-sm">{p.display_name}</p>
                       {p.college && <p className="text-xs text-muted-foreground">{p.college}</p>}
                       <div className="mt-1 flex flex-wrap gap-3 text-xs">
-                        {p.linkedin_url && <a href={p.linkedin_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline"><Linkedin className="h-3.5 w-3.5" /> LinkedIn</a>}
-                        {p.github_url && <a href={p.github_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline"><Github className="h-3.5 w-3.5" /> GitHub</a>}
+                        {p.linkedin_url && (
+                          <a
+                            href={p.linkedin_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 text-primary hover:underline"
+                          >
+                            <Linkedin className="h-3.5 w-3.5" /> LinkedIn
+                          </a>
+                        )}
+                        {p.github_url && (
+                          <a
+                            href={p.github_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 text-primary hover:underline"
+                          >
+                            <Github className="h-3.5 w-3.5" /> GitHub
+                          </a>
+                        )}
                       </div>
-                      <p className="mt-2 text-xs text-muted-foreground">💬 Say hi and set up a 15-min intro this week!</p>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        💬 Say hi and set up a 15-min intro this week!
+                      </p>
                     </div>
                   </div>
                 );

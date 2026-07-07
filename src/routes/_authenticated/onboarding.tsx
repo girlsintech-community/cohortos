@@ -10,7 +10,13 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Sparkles, Upload, X } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { SKILL_OPTIONS } from "@/lib/skills";
 import { toast } from "sonner";
 
@@ -26,7 +32,11 @@ function Onboarding() {
   const { data: profile } = useQuery({
     queryKey: ["profile", user.id],
     queryFn: async () => {
-      const { data, error } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .maybeSingle();
       if (error) throw error;
       return data;
     },
@@ -52,7 +62,7 @@ function Onboarding() {
   useEffect(() => {
     if (!profile) return;
     setDisplayName(profile.display_name ?? "");
-    setUsername(((profile as { username?: string | null }).username) ?? "");
+    setUsername((profile as { username?: string | null }).username ?? "");
     setBio(profile.bio ?? "");
     setCollege(profile.college ?? "");
     setCity(profile.city ?? "");
@@ -84,7 +94,9 @@ function Onboarding() {
       const path = `${user.id}/avatar-${Date.now()}.${ext}`;
       const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
       if (error) throw error;
-      const { data } = await supabase.storage.from("avatars").createSignedUrl(path, 60 * 60 * 24 * 365);
+      const { data } = await supabase.storage
+        .from("avatars")
+        .createSignedUrl(path, 60 * 60 * 24 * 365);
       setAvatarUrl(data?.signedUrl ?? null);
       toast.success("Photo uploaded");
     } catch (e) {
@@ -98,7 +110,8 @@ function Onboarding() {
     mutationFn: async () => {
       if (!displayName.trim()) throw new Error("Name is required");
       const uname = username.trim().toLowerCase();
-      if (!/^[a-z0-9_]{2,30}$/.test(uname)) throw new Error("Username must be 2-30 chars, letters/numbers/underscores only");
+      if (!/^[a-z0-9_]{2,30}$/.test(uname))
+        throw new Error("Username must be 2-30 chars, letters/numbers/underscores only");
       if (!avatarUrl) throw new Error("Please upload a profile photo");
       if (!primaryRole) throw new Error("Please select your role");
       if (!college.trim()) throw new Error("College is required");
@@ -110,25 +123,29 @@ function Onboarding() {
       if (!stateVal.trim()) throw new Error("State is required");
       if (!bio.trim()) throw new Error("Short bio is required");
       if (skills.length === 0) throw new Error("Please add at least one skill");
-      const { error } = await supabase.from("profiles").update({
-        display_name: displayName.trim(),
-        username: uname,
-        bio: bio.trim(),
-        college: college.trim(),
-        city: city.trim(),
-        state: stateVal.trim(),
-        branch: branch.trim(),
-        course: course.trim(),
-        graduation_year: Number(gradYear),
-        linkedin_url: linkedin.trim(),
-        github_url: github.trim(),
-        skills,
-        avatar_url: avatarUrl,
-        onboarded: true,
-        primary_role: primaryRole,
-      }).eq("id", user.id);
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          display_name: displayName.trim(),
+          username: uname,
+          bio: bio.trim(),
+          college: college.trim(),
+          city: city.trim(),
+          state: stateVal.trim(),
+          branch: branch.trim(),
+          course: course.trim(),
+          graduation_year: Number(gradYear),
+          linkedin_url: linkedin.trim(),
+          github_url: github.trim(),
+          skills,
+          avatar_url: avatarUrl,
+          onboarded: true,
+          primary_role: primaryRole,
+        })
+        .eq("id", user.id);
       if (error) {
-        if ((error as { code?: string }).code === "23505") throw new Error("That username is already taken");
+        if ((error as { code?: string }).code === "23505")
+          throw new Error("That username is already taken");
         throw error;
       }
     },
@@ -145,27 +162,48 @@ function Onboarding() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="text-center space-y-2">
-        <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl text-primary-foreground" style={{ background: "var(--gradient-primary)" }}>
+        <div
+          className="mx-auto grid h-14 w-14 place-items-center rounded-2xl text-primary-foreground"
+          style={{ background: "var(--gradient-primary)" }}
+        >
           <Sparkles className="h-7 w-7" />
         </div>
         <h1 className="text-3xl font-bold">Welcome to Cohort OS ✨</h1>
-        <p className="text-muted-foreground">Complete your profile so your cohort sisters can find & recognize you.</p>
-        <p className="text-xs text-destructive font-medium">All fields marked with * are required.</p>
+        <p className="text-muted-foreground">
+          Complete your profile so your cohort sisters can find & recognize you.
+        </p>
+        <p className="text-xs text-destructive font-medium">
+          All fields marked with * are required.
+        </p>
       </div>
 
       <Card>
-        <CardHeader><CardTitle>Your photo *</CardTitle><CardDescription>A friendly face helps the community connect.</CardDescription></CardHeader>
+        <CardHeader>
+          <CardTitle>Your photo *</CardTitle>
+          <CardDescription>A friendly face helps the community connect.</CardDescription>
+        </CardHeader>
         <CardContent>
           <div className="flex items-center gap-4">
             <Avatar className="h-20 w-20 border-2 border-primary/30">
               <AvatarImage src={avatarUrl ?? undefined} />
-              <AvatarFallback className="bg-primary text-primary-foreground text-xl">{initials}</AvatarFallback>
+              <AvatarFallback className="bg-primary text-primary-foreground text-xl">
+                {initials}
+              </AvatarFallback>
             </Avatar>
             <div>
               <label className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground cursor-pointer hover:bg-primary/90">
-                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                {uploading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Upload className="h-4 w-4" />
+                )}
                 {avatarUrl ? "Change photo" : "Upload photo"}
-                <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && handleAvatar(e.target.files[0])} />
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => e.target.files?.[0] && handleAvatar(e.target.files[0])}
+                />
               </label>
               <p className="text-xs text-muted-foreground mt-2">PNG or JPG, up to 5MB</p>
             </div>
@@ -174,16 +212,35 @@ function Onboarding() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Basics</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>Basics</CardTitle>
+        </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
-          <Field label="Display name *"><Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={60} /></Field>
+          <Field label="Display name *">
+            <Input
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              maxLength={60}
+            />
+          </Field>
           <Field label="Username * (@handle for mentions)">
-            <Input value={username} onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))} maxLength={30} />
-            <p className="text-xs text-muted-foreground mt-1">Letters, numbers, underscores. Others can @mention you with this.</p>
+            <Input
+              value={username}
+              onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))}
+              maxLength={30}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Letters, numbers, underscores. Others can @mention you with this.
+            </p>
           </Field>
           <Field label="I am joining as *">
-            <Select value={primaryRole} onValueChange={(v) => setPrimaryRole(v as typeof primaryRole)}>
-              <SelectTrigger><SelectValue placeholder="Select your role" /></SelectTrigger>
+            <Select
+              value={primaryRole}
+              onValueChange={(v) => setPrimaryRole(v as typeof primaryRole)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select your role" />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="mentee">Mentee</SelectItem>
                 <SelectItem value="mentor">Mentor</SelectItem>
@@ -191,48 +248,114 @@ function Onboarding() {
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Short bio *" className="sm:col-span-2"><Textarea rows={3} value={bio} onChange={(e) => setBio(e.target.value)} maxLength={280} placeholder="Tell us a bit about yourself…" /></Field>
+          <Field label="Short bio *" className="sm:col-span-2">
+            <Textarea
+              rows={3}
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              maxLength={280}
+              placeholder="Tell us a bit about yourself…"
+            />
+          </Field>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Education</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>Education</CardTitle>
+        </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
-          <Field label="College / University *" className="sm:col-span-2"><Input value={college} onChange={(e) => setCollege(e.target.value)} maxLength={120} /></Field>
-          <Field label="Course *"><Input value={course} onChange={(e) => setCourse(e.target.value)} maxLength={60} /></Field>
-          <Field label="Branch *"><Input value={branch} onChange={(e) => setBranch(e.target.value)} maxLength={60} /></Field>
-          <Field label="Graduation year *"><Input type="number" min={2020} max={2035} value={gradYear} onChange={(e) => setGradYear(e.target.value)} /></Field>
+          <Field label="College / University *" className="sm:col-span-2">
+            <Input value={college} onChange={(e) => setCollege(e.target.value)} maxLength={120} />
+          </Field>
+          <Field label="Course *">
+            <Input value={course} onChange={(e) => setCourse(e.target.value)} maxLength={60} />
+          </Field>
+          <Field label="Branch *">
+            <Input value={branch} onChange={(e) => setBranch(e.target.value)} maxLength={60} />
+          </Field>
+          <Field label="Graduation year *">
+            <Input
+              type="number"
+              min={2020}
+              max={2035}
+              value={gradYear}
+              onChange={(e) => setGradYear(e.target.value)}
+            />
+          </Field>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Location</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>Location</CardTitle>
+        </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
-          <Field label="City *"><Input value={city} onChange={(e) => setCity(e.target.value)} maxLength={60} /></Field>
-          <Field label="State *"><Input value={stateVal} onChange={(e) => setStateVal(e.target.value)} maxLength={60} /></Field>
+          <Field label="City *">
+            <Input value={city} onChange={(e) => setCity(e.target.value)} maxLength={60} />
+          </Field>
+          <Field label="State *">
+            <Input value={stateVal} onChange={(e) => setStateVal(e.target.value)} maxLength={60} />
+          </Field>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Links & Skills</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>Links & Skills</CardTitle>
+        </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
-          <Field label="LinkedIn URL *"><Input value={linkedin} onChange={(e) => setLinkedin(e.target.value)} placeholder="https://linkedin.com/in/…" /></Field>
-          <Field label="GitHub URL *"><Input value={github} onChange={(e) => setGithub(e.target.value)} placeholder="https://github.com/…" /></Field>
+          <Field label="LinkedIn URL *">
+            <Input
+              value={linkedin}
+              onChange={(e) => setLinkedin(e.target.value)}
+              placeholder="https://linkedin.com/in/…"
+            />
+          </Field>
+          <Field label="GitHub URL *">
+            <Input
+              value={github}
+              onChange={(e) => setGithub(e.target.value)}
+              placeholder="https://github.com/…"
+            />
+          </Field>
           <Field label="Skills * (at least 1)" className="sm:col-span-2">
             <div className="flex gap-2">
-              <Input list="skills-list" value={skillInput} onChange={(e) => setSkillInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSkill(); } }} />
+              <Input
+                list="skills-list"
+                value={skillInput}
+                onChange={(e) => setSkillInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addSkill();
+                  }
+                }}
+              />
               <datalist id="skills-list">
-                {SKILL_OPTIONS.map((s) => <option key={s} value={s} />)}
+                {SKILL_OPTIONS.map((s) => (
+                  <option key={s} value={s} />
+                ))}
               </datalist>
-              <Button type="button" variant="secondary" onClick={addSkill}>Add</Button>
+              <Button type="button" variant="secondary" onClick={addSkill}>
+                Add
+              </Button>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Pick from the list or type your own.</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Pick from the list or type your own.
+            </p>
             {skills.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-3">
                 {skills.map((s) => (
                   <Badge key={s} variant="secondary" className="gap-1">
                     {s}
-                    <button type="button" onClick={() => setSkills(skills.filter((x) => x !== s))} className="hover:text-destructive"><X className="h-3 w-3" /></button>
+                    <button
+                      type="button"
+                      onClick={() => setSkills(skills.filter((x) => x !== s))}
+                      className="hover:text-destructive"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
                   </Badge>
                 ))}
               </div>
@@ -242,7 +365,13 @@ function Onboarding() {
       </Card>
 
       <div className="flex justify-end pb-8">
-        <Button size="lg" onClick={() => save.mutate()} disabled={save.isPending} style={{ background: "var(--gradient-primary)" }} className="text-primary-foreground">
+        <Button
+          size="lg"
+          onClick={() => save.mutate()}
+          disabled={save.isPending}
+          style={{ background: "var(--gradient-primary)" }}
+          className="text-primary-foreground"
+        >
           {save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Complete profile & enter Cohort OS
         </Button>
@@ -251,7 +380,15 @@ function Onboarding() {
   );
 }
 
-function Field({ label, className, children }: { label: string; className?: string; children: React.ReactNode }) {
+function Field({
+  label,
+  className,
+  children,
+}: {
+  label: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className={`space-y-2 ${className ?? ""}`}>
       <Label>{label}</Label>
