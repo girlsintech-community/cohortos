@@ -30,6 +30,13 @@ const CATEGORY_BADGE: Record<string, string> = {
   resource: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
 };
 
+function renderMentions(text: string) {
+  const parts = text.split(/(@[a-zA-Z0-9_]{2,30})/g);
+  return parts.map((p, i) =>
+    p.startsWith("@") ? <span key={i} className="text-primary font-medium">{p}</span> : <span key={i}>{p}</span>
+  );
+}
+
 function CommentsThread({ postId, currentUserId, draft, onDraft, onSubmit, submitting }: {
   postId: string;
   currentUserId: string;
