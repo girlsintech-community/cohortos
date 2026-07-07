@@ -114,17 +114,27 @@ function OverviewPanel() {
 }
 
 function MembersPanel() {
+  const qc = useQueryClient();
   const { data, isLoading } = useQuery({
     queryKey: ["admin", "members"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, display_name, avatar_url, college, branch, graduation_year, city, state, xp, level, streak, onboarded, created_at, linkedin_url, github_url")
+        .select("id, display_name, username, avatar_url, college, branch, graduation_year, city, state, xp, level, streak, onboarded, created_at, linkedin_url, github_url, primary_role")
         .order("xp", { ascending: false })
         .limit(500);
       if (error) throw error;
       return data;
     },
+  });
+
+  const setRole = useMutation({
+    mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
+      const { error } = await supabase.rpc("set_user_primary_role", { _target: userId, _role: role });
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Role updated"); qc.invalidateQueries({ queryKey: ["admin", "members"] }); },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   if (isLoading) return <div className="grid place-items-center py-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
@@ -137,6 +147,7 @@ function MembersPanel() {
           <thead className="border-b bg-muted/40 text-left">
             <tr>
               <th className="p-3 font-medium">Member</th>
+              <th className="p-3 font-medium">Role</th>
               <th className="p-3 font-medium">College</th>
               <th className="p-3 font-medium">Location</th>
               <th className="p-3 font-medium">Year</th>
@@ -152,7 +163,17 @@ function MembersPanel() {
               <tr key={m.id} className="border-b hover:bg-muted/30">
                 <td className="p-3">
                   <p className="font-medium">{m.display_name ?? "—"}</p>
-                  <p className="text-xs text-muted-foreground">Joined {new Date(m.created_at).toLocaleDateString()}</p>
+                  <p className="text-xs text-muted-foreground">{(m as any).username ? `@${(m as any).username} · ` : ""}Joined {new Date(m.created_at).toLocaleDateString()}</p>
+                </td>
+                <td className="p-3">
+                  <Select value={((m as any).primary_role) ?? "mentee"} onValueChange={(v) => setRole.mutate({ userId: m.id, role: v })}>
+                    <SelectTrigger className="h-8 w-32 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="mentee">Mentee</SelectItem>
+                      <SelectItem value="mentor">Mentor</SelectItem>
+                      <SelectItem value="team_member">Team</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </td>
                 <td className="p-3">{m.college ?? "—"}<div className="text-xs text-muted-foreground">{m.branch ?? ""}</div></td>
                 <td className="p-3">{[m.city, m.state].filter(Boolean).join(", ") || "—"}</td>
