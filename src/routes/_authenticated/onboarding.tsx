@@ -33,6 +33,7 @@ function Onboarding() {
   });
 
   const [displayName, setDisplayName] = useState("");
+  const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
   const [college, setCollege] = useState("");
   const [city, setCity] = useState("");
@@ -51,6 +52,7 @@ function Onboarding() {
   useEffect(() => {
     if (!profile) return;
     setDisplayName(profile.display_name ?? "");
+    setUsername(((profile as { username?: string | null }).username) ?? "");
     setBio(profile.bio ?? "");
     setCollege(profile.college ?? "");
     setCity(profile.city ?? "");
@@ -95,6 +97,8 @@ function Onboarding() {
   const save = useMutation({
     mutationFn: async () => {
       if (!displayName.trim()) throw new Error("Name is required");
+      const uname = username.trim().toLowerCase();
+      if (!/^[a-z0-9_]{2,30}$/.test(uname)) throw new Error("Username must be 2-30 chars, letters/numbers/underscores only");
       if (!avatarUrl) throw new Error("Please upload a profile photo");
       if (!primaryRole) throw new Error("Please select your role");
       if (!college.trim()) throw new Error("College is required");
@@ -108,6 +112,7 @@ function Onboarding() {
       if (skills.length === 0) throw new Error("Please add at least one skill");
       const { error } = await supabase.from("profiles").update({
         display_name: displayName.trim(),
+        username: uname,
         bio: bio.trim(),
         college: college.trim(),
         city: city.trim(),
@@ -122,7 +127,10 @@ function Onboarding() {
         onboarded: true,
         primary_role: primaryRole,
       }).eq("id", user.id);
-      if (error) throw error;
+      if (error) {
+        if ((error as { code?: string }).code === "23505") throw new Error("That username is already taken");
+        throw error;
+      }
     },
     onSuccess: async () => {
       toast.success("Welcome to Cohort OS! 🎉");
@@ -169,6 +177,10 @@ function Onboarding() {
         <CardHeader><CardTitle>Basics</CardTitle></CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <Field label="Display name *"><Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={60} /></Field>
+          <Field label="Username * (@handle for mentions)">
+            <Input value={username} onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))} maxLength={30} />
+            <p className="text-xs text-muted-foreground mt-1">Letters, numbers, underscores. Others can @mention you with this.</p>
+          </Field>
           <Field label="I am joining as *">
             <Select value={primaryRole} onValueChange={(v) => setPrimaryRole(v as typeof primaryRole)}>
               <SelectTrigger><SelectValue placeholder="Select your role" /></SelectTrigger>

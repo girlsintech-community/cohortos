@@ -30,6 +30,13 @@ const CATEGORY_BADGE: Record<string, string> = {
   resource: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
 };
 
+function renderMentions(text: string) {
+  const parts = text.split(/(@[a-zA-Z0-9_]{2,30})/g);
+  return parts.map((p, i) =>
+    p.startsWith("@") ? <span key={i} className="text-primary font-medium">{p}</span> : <span key={i}>{p}</span>
+  );
+}
+
 function CommentsThread({ postId, currentUserId, draft, onDraft, onSubmit, submitting }: {
   postId: string;
   currentUserId: string;
@@ -44,7 +51,7 @@ function CommentsThread({ postId, currentUserId, draft, onDraft, onSubmit, submi
     queryFn: async () => {
       const { data, error } = await supabase
         .from("post_comments")
-        .select("id, post_id, author_id, content, created_at, profiles!post_comments_author_profile_fkey(display_name, avatar_url)")
+        .select("id, post_id, author_id, content, created_at, profiles!post_comments_author_profile_fkey(display_name, username, avatar_url)")
         .eq("post_id", postId)
         .order("created_at", { ascending: true });
       if (error) throw error;
@@ -75,11 +82,14 @@ function CommentsThread({ postId, currentUserId, draft, onDraft, onSubmit, submi
             <div key={c.id} className="flex gap-2">
               <Avatar className="h-7 w-7"><AvatarImage src={c.profiles?.avatar_url ?? undefined} /><AvatarFallback className="text-[10px] bg-primary/10 text-primary">{ini}</AvatarFallback></Avatar>
               <div className="flex-1 rounded-lg bg-muted/50 px-3 py-2">
-                <div className="flex items-baseline gap-2">
-                  <p className="text-xs font-semibold">{c.profiles?.display_name ?? "Someone"}</p>
+                <div className="flex items-baseline gap-2 flex-wrap">
+                  <p className="text-xs font-semibold">
+                    {c.profiles?.display_name ?? "Someone"}
+                    {c.profiles?.username && <span className="ml-1 font-normal text-muted-foreground">@{c.profiles.username}</span>}
+                  </p>
                   <p className="text-[10px] text-muted-foreground">{formatDistanceToNow(new Date(c.created_at), { addSuffix: true })}</p>
                 </div>
-                <p className="text-sm whitespace-pre-wrap break-words">{c.content}</p>
+                <p className="text-sm whitespace-pre-wrap break-words">{renderMentions(c.content)}</p>
                 {c.author_id === currentUserId && (
                   <button onClick={() => del.mutate(c.id)} className="mt-1 text-[10px] text-muted-foreground hover:text-destructive">Delete</button>
                 )}
@@ -89,7 +99,7 @@ function CommentsThread({ postId, currentUserId, draft, onDraft, onSubmit, submi
         })
       )}
       <div className="flex gap-2">
-        <Textarea rows={1} value={draft} onChange={(e) => onDraft(e.target.value)} maxLength={1000} placeholder="Write a reply…" className="min-h-[40px]" />
+        <Textarea rows={1} value={draft} onChange={(e) => onDraft(e.target.value)} maxLength={1000} placeholder="Write a reply… tag with @username" className="min-h-[40px]" />
         <Button size="sm" onClick={onSubmit} disabled={submitting || !draft.trim()}>
           {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
         </Button>
@@ -106,7 +116,7 @@ type Post = {
   image_url: string | null;
   link_url: string | null;
   category: string;
-  profiles: { display_name: string; avatar_url: string | null } | null;
+  profiles: { display_name: string; username: string | null; avatar_url: string | null } | null;
   post_likes: { user_id: string }[];
   post_comments: { id: string }[];
 };
@@ -117,7 +127,7 @@ type Comment = {
   author_id: string;
   content: string;
   created_at: string;
-  profiles: { display_name: string; avatar_url: string | null } | null;
+  profiles: { display_name: string; username: string | null; avatar_url: string | null } | null;
 };
 
 function FeedPage() {
@@ -140,7 +150,7 @@ function FeedPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("posts")
-        .select("id, author_id, content, created_at, image_url, link_url, category, profiles!posts_author_profile_fkey(display_name, avatar_url), post_likes(user_id), post_comments(id)")
+        .select("id, author_id, content, created_at, image_url, link_url, category, profiles!posts_author_profile_fkey(display_name, username, avatar_url), post_likes(user_id), post_comments(id)")
         .order("created_at", { ascending: false })
         .limit(50);
       if (error) throw error;
@@ -349,6 +359,7 @@ function FeedPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <Link to="/u/$id" params={{ id: p.author_id }} className="font-semibold text-sm hover:underline">{p.profiles?.display_name ?? "Someone"}</Link>
+                        {p.profiles?.username && <span className="text-xs text-muted-foreground">@{p.profiles.username}</span>}
                         <p className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(p.created_at), { addSuffix: true })}</p>
                         <Badge variant="outline" className={`text-[10px] capitalize ${catStyle}`}>{p.category}</Badge>
                       </div>
@@ -366,7 +377,7 @@ function FeedPage() {
                         </div>
                       ) : (
                         <>
-                          {p.content && <p className="mt-1 text-sm whitespace-pre-wrap break-words">{p.content}</p>}
+                          {p.content && <p className="mt-1 text-sm whitespace-pre-wrap break-words">{renderMentions(p.content)}</p>}
                           {p.image_url && <img src={p.image_url} alt="" className="mt-2 rounded-lg max-h-96 object-contain border" />}
                           {p.link_url && (
                             <a href={p.link_url} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1.5 text-xs text-primary hover:underline break-all">

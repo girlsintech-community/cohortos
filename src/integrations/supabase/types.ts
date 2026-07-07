@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      allowed_emails: {
+        Row: {
+          added_by: string | null
+          created_at: string
+          email: string
+          id: string
+        }
+        Insert: {
+          added_by?: string | null
+          created_at?: string
+          email: string
+          id?: string
+        }
+        Update: {
+          added_by?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+        }
+        Relationships: []
+      }
       challenge_submissions: {
         Row: {
           challenge_id: string
@@ -169,6 +190,162 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          id: string
+          is_read: boolean
+          link: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          link?: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          link?: string | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      pod_members: {
+        Row: {
+          added_at: string
+          id: string
+          member_role: string
+          pod_id: string
+          user_id: string
+        }
+        Insert: {
+          added_at?: string
+          id?: string
+          member_role?: string
+          pod_id: string
+          user_id: string
+        }
+        Update: {
+          added_at?: string
+          id?: string
+          member_role?: string
+          pod_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pod_members_pod_id_fkey"
+            columns: ["pod_id"]
+            isOneToOne: false
+            referencedRelation: "pods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pod_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pod_messages: {
+        Row: {
+          author_id: string
+          content: string
+          created_at: string
+          id: string
+          pod_id: string
+        }
+        Insert: {
+          author_id: string
+          content: string
+          created_at?: string
+          id?: string
+          pod_id: string
+        }
+        Update: {
+          author_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          pod_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pod_messages_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pod_messages_pod_id_fkey"
+            columns: ["pod_id"]
+            isOneToOne: false
+            referencedRelation: "pods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pods: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          mentor_id: string | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          mentor_id?: string | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          mentor_id?: string | null
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pods_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pods_mentor_id_fkey"
+            columns: ["mentor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       post_comments: {
         Row: {
           author_id: string
@@ -237,6 +414,7 @@ export type Database = {
       posts: {
         Row: {
           author_id: string
+          category: string
           content: string
           created_at: string
           id: string
@@ -246,6 +424,7 @@ export type Database = {
         }
         Insert: {
           author_id: string
+          category?: string
           content: string
           created_at?: string
           id?: string
@@ -255,6 +434,7 @@ export type Database = {
         }
         Update: {
           author_id?: string
+          category?: string
           content?: string
           created_at?: string
           id?: string
@@ -294,6 +474,7 @@ export type Database = {
           state: string | null
           streak: number
           updated_at: string
+          username: string | null
           xp: number
         }
         Insert: {
@@ -317,6 +498,7 @@ export type Database = {
           state?: string | null
           streak?: number
           updated_at?: string
+          username?: string | null
           xp?: number
         }
         Update: {
@@ -340,7 +522,41 @@ export type Database = {
           state?: string | null
           streak?: number
           updated_at?: string
+          username?: string | null
           xp?: number
+        }
+        Relationships: []
+      }
+      resources: {
+        Row: {
+          category: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          title: string
+          url: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          title: string
+          url: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          title?: string
+          url?: string
         }
         Relationships: []
       }
@@ -441,12 +657,26 @@ export type Database = {
         Args: { _amount: number; _meta?: Json; _type: string; _user: string }
         Returns: undefined
       }
+      find_profile_by_email: { Args: { _email: string }; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
+      }
+      is_pod_member: {
+        Args: { _pod_id: string; _user_id: string }
+        Returns: boolean
+      }
+      notify_mentions_from_text: {
+        Args: {
+          _link: string
+          _source_user: string
+          _text: string
+          _title_prefix: string
+        }
+        Returns: undefined
       }
       request_speed_match: {
         Args: never
@@ -455,6 +685,10 @@ export type Database = {
           partner_id: string
           status: string
         }[]
+      }
+      set_user_primary_role: {
+        Args: { _role: string; _target: string }
+        Returns: undefined
       }
     }
     Enums: {

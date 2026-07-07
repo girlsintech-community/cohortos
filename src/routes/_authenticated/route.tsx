@@ -1,6 +1,6 @@
 import { createFileRoute, Outlet, redirect, Link, useRouter, useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { Home, User, LogOut, Rss, MessagesSquare, Target, Trophy, Shield, Users, BookOpen, Bell, MoreHorizontal, X } from "lucide-react";
+import { Home, User, LogOut, Rss, MessagesSquare, Target, Trophy, Shield, Users, BookOpen, Bell, MoreHorizontal, X, UsersRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -172,6 +172,7 @@ function AuthedLayout() {
         { to: "/dashboard", label: "Dashboard", icon: Home },
         { to: "/feed", label: "Feed", icon: Rss },
         { to: "/discussions", label: "Discussions", icon: MessagesSquare },
+          { to: "/pods", label: "Pods", icon: UsersRound },
         { to: "/challenges", label: "Challenges", icon: Target },
         { to: "/leaderboard", label: "Leaderboard", icon: Trophy },
         { to: "/resources", label: "Resources", icon: BookOpen },
