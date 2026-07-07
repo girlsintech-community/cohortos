@@ -138,7 +138,7 @@ function AuthPage() {
             {[
               { n: "120", l: "Mentees" },
               { n: "25", l: "Mentors" },
-              { n: "5wk", l: "Cohort" },
+              { n: "4 weeks", l: "Cohort" },
             ].map((s) => (
               <div key={s.l} className="rounded-xl bg-white/10 p-4 backdrop-blur">
                 <div className="text-2xl font-bold">{s.n}</div>
