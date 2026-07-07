@@ -223,6 +223,129 @@ export type Database = {
         }
         Relationships: []
       }
+      pod_members: {
+        Row: {
+          added_at: string
+          id: string
+          member_role: string
+          pod_id: string
+          user_id: string
+        }
+        Insert: {
+          added_at?: string
+          id?: string
+          member_role?: string
+          pod_id: string
+          user_id: string
+        }
+        Update: {
+          added_at?: string
+          id?: string
+          member_role?: string
+          pod_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pod_members_pod_id_fkey"
+            columns: ["pod_id"]
+            isOneToOne: false
+            referencedRelation: "pods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pod_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pod_messages: {
+        Row: {
+          author_id: string
+          content: string
+          created_at: string
+          id: string
+          pod_id: string
+        }
+        Insert: {
+          author_id: string
+          content: string
+          created_at?: string
+          id?: string
+          pod_id: string
+        }
+        Update: {
+          author_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          pod_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pod_messages_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pod_messages_pod_id_fkey"
+            columns: ["pod_id"]
+            isOneToOne: false
+            referencedRelation: "pods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pods: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          mentor_id: string | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          mentor_id?: string | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          mentor_id?: string | null
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pods_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pods_mentor_id_fkey"
+            columns: ["mentor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       post_comments: {
         Row: {
           author_id: string
@@ -351,6 +474,7 @@ export type Database = {
           state: string | null
           streak: number
           updated_at: string
+          username: string | null
           xp: number
         }
         Insert: {
@@ -374,6 +498,7 @@ export type Database = {
           state?: string | null
           streak?: number
           updated_at?: string
+          username?: string | null
           xp?: number
         }
         Update: {
@@ -397,6 +522,7 @@ export type Database = {
           state?: string | null
           streak?: number
           updated_at?: string
+          username?: string | null
           xp?: number
         }
         Relationships: []
@@ -538,6 +664,19 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_pod_member: {
+        Args: { _pod_id: string; _user_id: string }
+        Returns: boolean
+      }
+      notify_mentions_from_text: {
+        Args: {
+          _link: string
+          _source_user: string
+          _text: string
+          _title_prefix: string
+        }
+        Returns: undefined
+      }
       request_speed_match: {
         Args: never
         Returns: {
@@ -545,6 +684,10 @@ export type Database = {
           partner_id: string
           status: string
         }[]
+      }
+      set_user_primary_role: {
+        Args: { _role: string; _target: string }
+        Returns: undefined
       }
     }
     Enums: {
