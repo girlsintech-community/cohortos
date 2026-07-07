@@ -356,6 +356,180 @@ function ChallengesPanel() {
   );
 }
 
+// ─── Pods Panel ───
+function PodsPanel() {
+  const qc = useQueryClient();
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [mentorEmail, setMentorEmail] = useState("");
+  const [selectedPodId, setSelectedPodId] = useState<string | null>(null);
+  const [addEmail, setAddEmail] = useState("");
+  const [addRole, setAddRole] = useState<"mentee" | "mentor" | "team_member">("mentee");
+
+  const { data: pods } = useQuery({
+    queryKey: ["admin", "pods"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("pods").select("id, name, description, mentor_id, created_at").order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as Array<{ id: string; name: string; description: string | null; mentor_id: string | null; created_at: string }>;
+    },
+  });
+
+  const { data: podMembers } = useQuery({
+    queryKey: ["admin", "pod-members", selectedPodId],
+    enabled: !!selectedPodId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("pod_members")
+        .select("id, user_id, member_role, profiles!pod_members_user_id_fkey(display_name, username, avatar_url)")
+        .eq("pod_id", selectedPodId!);
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  async function findProfileByEmail(email: string): Promise<string | null> {
+    const { data, error } = await supabase.rpc("find_profile_by_email" as any, { _email: email.trim().toLowerCase() });
+    if (error) return null;
+    return (data as string | null) ?? null;
+  }
+
+  const createPod = useMutation({
+    mutationFn: async () => {
+      if (!name.trim()) throw new Error("Pod name required");
+      let mentorId: string | null = null;
+      if (mentorEmail.trim()) {
+        mentorId = await findProfileByEmail(mentorEmail);
+        if (!mentorId) throw new Error("Mentor email not found in profiles");
+      }
+      const { data, error } = await supabase.from("pods").insert({ name: name.trim(), description: description.trim() || null, mentor_id: mentorId }).select("id").single();
+      if (error) throw error;
+      if (mentorId) {
+        await supabase.from("pod_members").insert({ pod_id: data.id, user_id: mentorId, member_role: "mentor" });
+      }
+    },
+    onSuccess: () => {
+      setName(""); setDescription(""); setMentorEmail("");
+      toast.success("Pod created");
+      qc.invalidateQueries({ queryKey: ["admin", "pods"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const addMember = useMutation({
+    mutationFn: async () => {
+      if (!selectedPodId) throw new Error("Select a pod first");
+      if (!addEmail.trim()) throw new Error("Enter an email");
+      const uid = await findProfileByEmail(addEmail);
+      if (!uid) throw new Error("No profile found for that email");
+      const { error } = await supabase.from("pod_members").insert({ pod_id: selectedPodId, user_id: uid, member_role: addRole });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setAddEmail("");
+      toast.success("Member added");
+      qc.invalidateQueries({ queryKey: ["admin", "pod-members", selectedPodId] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const removeMember = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("pod_members").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "pod-members", selectedPodId] }),
+  });
+
+  const deletePod = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("pods").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Pod deleted");
+      setSelectedPodId(null);
+      qc.invalidateQueries({ queryKey: ["admin", "pods"] });
+    },
+  });
+
+  return (
+    <div className="grid gap-6 md:grid-cols-2">
+      <div className="space-y-4">
+        <Card>
+          <CardHeader><CardTitle className="flex items-center gap-2"><UsersRound className="h-5 w-5 text-primary" /> Create pod</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            <div className="space-y-1.5"><Label>Pod name</Label><Input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} /></div>
+            <div className="space-y-1.5"><Label>Description (optional)</Label><Textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={280} /></div>
+            <div className="space-y-1.5"><Label>Mentor email (optional)</Label><Input value={mentorEmail} onChange={(e) => setMentorEmail(e.target.value)} placeholder="mentor@example.com" /></div>
+            <Button onClick={() => createPod.mutate()} disabled={createPod.isPending} className="w-full" style={{ background: "var(--gradient-primary)" }}>
+              {createPod.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <Plus className="mr-2 h-4 w-4" /> Create pod
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>All pods ({(pods ?? []).length})</CardTitle></CardHeader>
+          <CardContent className="space-y-1 max-h-96 overflow-y-auto">
+            {(pods ?? []).length === 0 && <p className="text-sm text-muted-foreground">None yet.</p>}
+            {(pods ?? []).map((p) => (
+              <div key={p.id} className={`flex items-center gap-2 rounded border p-2 cursor-pointer ${selectedPodId === p.id ? "bg-primary/5 border-primary/40" : ""}`} onClick={() => setSelectedPodId(p.id)}>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{p.name}</p>
+                  {p.description && <p className="text-xs text-muted-foreground truncate">{p.description}</p>}
+                </div>
+                <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); if (confirm(`Delete pod "${p.name}"?`)) deletePod.mutate(p.id); }}>
+                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                </Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader><CardTitle>{selectedPodId ? "Manage members" : "Select a pod to manage members"}</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          {!selectedPodId ? (
+            <p className="text-sm text-muted-foreground">Click a pod on the left to add members.</p>
+          ) : (
+            <>
+              <div className="flex gap-2">
+                <Input value={addEmail} onChange={(e) => setAddEmail(e.target.value)} placeholder="member@example.com" />
+                <Select value={addRole} onValueChange={(v) => setAddRole(v as any)}>
+                  <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="mentee">Mentee</SelectItem>
+                    <SelectItem value="mentor">Mentor</SelectItem>
+                    <SelectItem value="team_member">Team</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button onClick={() => addMember.mutate()} disabled={addMember.isPending}>Add</Button>
+              </div>
+              <p className="text-xs text-muted-foreground">Suggested: 1 mentor + up to 7 mentees. Team members can assist.</p>
+              <div className="space-y-1 max-h-80 overflow-y-auto">
+                {(podMembers ?? []).length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">No members yet.</p>
+                ) : (podMembers ?? []).map((m: any) => (
+                  <div key={m.id} className="flex items-center gap-2 rounded border p-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{m.profiles?.display_name ?? "—"}</p>
+                      <p className="text-[10px] text-muted-foreground">{m.profiles?.username ? `@${m.profiles.username}` : ""}</p>
+                    </div>
+                    <Badge variant={m.member_role === "mentor" ? "default" : "outline"} className="text-[10px]">{m.member_role}</Badge>
+                    <Button size="sm" variant="ghost" onClick={() => removeMember.mutate(m.id)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 // ─── Allowlist Panel ───
 function AllowlistPanel() {
   const qc = useQueryClient();
