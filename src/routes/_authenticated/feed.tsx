@@ -44,7 +44,7 @@ function CommentsThread({ postId, currentUserId, draft, onDraft, onSubmit, submi
     queryFn: async () => {
       const { data, error } = await supabase
         .from("post_comments")
-        .select("id, post_id, author_id, content, created_at, profiles!post_comments_author_profile_fkey(display_name, avatar_url)")
+        .select("id, post_id, author_id, content, created_at, profiles!post_comments_author_profile_fkey(display_name, username, avatar_url)")
         .eq("post_id", postId)
         .order("created_at", { ascending: true });
       if (error) throw error;
