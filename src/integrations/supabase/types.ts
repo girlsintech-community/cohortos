@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      allowed_emails: {
+        Row: {
+          added_by: string | null
+          created_at: string
+          email: string
+          id: string
+        }
+        Insert: {
+          added_by?: string | null
+          created_at?: string
+          email: string
+          id?: string
+        }
+        Update: {
+          added_by?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+        }
+        Relationships: []
+      }
       challenge_submissions: {
         Row: {
           challenge_id: string
@@ -169,6 +190,39 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          id: string
+          is_read: boolean
+          link: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          link?: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          link?: string | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       post_comments: {
         Row: {
           author_id: string
@@ -237,6 +291,7 @@ export type Database = {
       posts: {
         Row: {
           author_id: string
+          category: string
           content: string
           created_at: string
           id: string
@@ -246,6 +301,7 @@ export type Database = {
         }
         Insert: {
           author_id: string
+          category?: string
           content: string
           created_at?: string
           id?: string
@@ -255,6 +311,7 @@ export type Database = {
         }
         Update: {
           author_id?: string
+          category?: string
           content?: string
           created_at?: string
           id?: string
@@ -341,6 +398,39 @@ export type Database = {
           streak?: number
           updated_at?: string
           xp?: number
+        }
+        Relationships: []
+      }
+      resources: {
+        Row: {
+          category: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          title: string
+          url: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          title: string
+          url: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          title?: string
+          url?: string
         }
         Relationships: []
       }
