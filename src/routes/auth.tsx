@@ -55,7 +55,8 @@ function AuthPage() {
     if (!allowed) {
       setBusy(false);
       return toast.error("Access denied", {
-        description: "This email is not on the approved list. This platform is exclusively for Girls Leading Tech program members.",
+        description:
+          "This email is not on the approved list. This platform is exclusively for Girls Leading Tech program members.",
       });
     }
     const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -73,7 +74,8 @@ function AuthPage() {
     if (!allowed) {
       setBusy(false);
       return toast.error("Access denied", {
-        description: "This email is not on the approved list. This platform is exclusively for Girls Leading Tech program mentees. Contact the admin if you believe this is an error.",
+        description:
+          "This email is not on the approved list. This platform is exclusively for Girls Leading Tech program mentees. Contact the admin if you believe this is an error.",
       });
     }
     const { error } = await supabase.auth.signUp({
@@ -112,7 +114,9 @@ function AuthPage() {
     const pw = makeStrongPassword();
     setPassword(pw);
     setShowPassword(true);
-    toast.success("Generated a strong password", { description: "Copy it somewhere safe before signing up." });
+    toast.success("Generated a strong password", {
+      description: "Copy it somewhere safe before signing up.",
+    });
   }
 
   if (checking) {
@@ -125,18 +129,24 @@ function AuthPage() {
 
   return (
     <div className="grid min-h-screen lg:grid-cols-2 bg-background">
-      <div className="hidden lg:flex flex-col justify-between p-12 text-primary-foreground" style={{ background: "var(--gradient-primary)" }}>
+      <div
+        className="hidden lg:flex flex-col justify-between p-12 text-primary-foreground"
+        style={{ background: "var(--gradient-primary)" }}
+      >
         <Link to="/" className="text-lg font-bold">
           Girls Leading Tech · Cohort OS
         </Link>
         <div className="space-y-6">
-          <h1 className="text-4xl font-bold leading-tight">Learn, contribute, compete — together.</h1>
+          <h1 className="text-4xl font-bold leading-tight">
+            Learn, contribute, compete — together.
+          </h1>
           <p className="text-lg text-primary-foreground/90 max-w-md">
-            The home base for the Girls Leading Tech DSA cohort. Earn XP, climb the leaderboard, and ship every day.
+            The home base for the Girls Leading Tech DSA cohort. Earn XP, climb the leaderboard, and
+            ship every day.
           </p>
           <div className="grid grid-cols-3 gap-4 max-w-md">
             {[
-              { n: "120", l: "Mentees" },
+              { n: "140", l: "Mentees" },
               { n: "25", l: "Mentors" },
               { n: "4 weeks", l: "Cohort" },
             ].map((s) => (
@@ -158,7 +168,8 @@ function AuthPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
-              🔒 This platform is exclusively for Girls Leading Tech program members. Only pre-approved emails can sign in or sign up.
+              🔒 This platform is exclusively for Girls Leading Tech program members. Only
+              pre-approved emails can sign in or sign up.
             </div>
             <Tabs defaultValue="signin">
               <TabsList className="grid w-full grid-cols-2">
@@ -169,29 +180,80 @@ function AuthPage() {
                 <form onSubmit={handleSignIn} className="space-y-3 pt-3">
                   <div className="space-y-2">
                     <Label htmlFor="si-email">Email</Label>
-                    <Input id="si-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+                    <Input
+                      id="si-email"
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="si-pw">Password</Label>
                     <div className="relative">
-                      <Input id="si-pw" type={showPassword ? "text" : "password"} required value={password} onChange={(e) => setPassword(e.target.value)} className="pr-10" />
-                      <button type="button" onClick={() => setShowPassword((v) => !v)} className="absolute inset-y-0 right-2 grid place-items-center text-muted-foreground hover:text-foreground" aria-label={showPassword ? "Hide password" : "Show password"}>
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      <Input
+                        id="si-pw"
+                        type={showPassword ? "text" : "password"}
+                        required
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((v) => !v)}
+                        className="absolute inset-y-0 right-2 grid place-items-center text-muted-foreground hover:text-foreground"
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
                       </button>
                     </div>
-                    <button type="button" onClick={() => { setForgotEmail(email); setForgotOpen(true); }} className="text-xs text-primary hover:underline">Forgot password?</button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setForgotEmail(email);
+                        setForgotOpen(true);
+                      }}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      Forgot password?
+                    </button>
                   </div>
                   <Button type="submit" className="w-full" disabled={busy}>
                     {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Sign in
                   </Button>
                 </form>
                 {forgotOpen && (
-                  <form onSubmit={handleForgot} className="mt-4 space-y-2 rounded-lg border bg-muted/30 p-3">
-                    <Label htmlFor="fp-email" className="text-xs">Send reset link to</Label>
-                    <Input id="fp-email" type="email" required value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)} />
+                  <form
+                    onSubmit={handleForgot}
+                    className="mt-4 space-y-2 rounded-lg border bg-muted/30 p-3"
+                  >
+                    <Label htmlFor="fp-email" className="text-xs">
+                      Send reset link to
+                    </Label>
+                    <Input
+                      id="fp-email"
+                      type="email"
+                      required
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                    />
                     <div className="flex gap-2 pt-1">
-                      <Button size="sm" type="submit" disabled={busy}>{busy && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}Send link</Button>
-                      <Button size="sm" type="button" variant="ghost" onClick={() => setForgotOpen(false)}>Cancel</Button>
+                      <Button size="sm" type="submit" disabled={busy}>
+                        {busy && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}Send link
+                      </Button>
+                      <Button
+                        size="sm"
+                        type="button"
+                        variant="ghost"
+                        onClick={() => setForgotOpen(false)}
+                      >
+                        Cancel
+                      </Button>
                     </div>
                   </form>
                 )}
@@ -200,26 +262,61 @@ function AuthPage() {
                 <form onSubmit={handleSignUp} className="space-y-3 pt-3">
                   <div className="space-y-2">
                     <Label htmlFor="su-name">Display name</Label>
-                    <Input id="su-name" required value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+                    <Input
+                      id="su-name"
+                      required
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="su-email">Email</Label>
-                    <Input id="su-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+                    <Input
+                      id="su-email"
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="su-pw">Password</Label>
                     <div className="relative">
-                      <Input id="su-pw" type={showPassword ? "text" : "password"} required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} className="pr-10" />
-                      <button type="button" onClick={() => setShowPassword((v) => !v)} className="absolute inset-y-0 right-2 grid place-items-center text-muted-foreground hover:text-foreground" aria-label={showPassword ? "Hide password" : "Show password"}>
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      <Input
+                        id="su-pw"
+                        type={showPassword ? "text" : "password"}
+                        required
+                        minLength={6}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((v) => !v)}
+                        className="absolute inset-y-0 right-2 grid place-items-center text-muted-foreground hover:text-foreground"
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
                       </button>
                     </div>
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <PasswordStrength score={strength.score} label={strength.label} />
-                      <button type="button" onClick={generatePassword} className="text-xs text-primary hover:underline inline-flex items-center gap-1"><Wand2 className="h-3 w-3" /> Generate strong password</button>
+                      <button
+                        type="button"
+                        onClick={generatePassword}
+                        className="text-xs text-primary hover:underline inline-flex items-center gap-1"
+                      >
+                        <Wand2 className="h-3 w-3" /> Generate strong password
+                      </button>
                     </div>
                     <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      Use 12+ characters with uppercase, lowercase, a number, and a symbol (e.g. <code className="rounded bg-muted px-1">!@#$%</code>).
+                      Use 12+ characters with uppercase, lowercase, a number, and a symbol (e.g.{" "}
+                      <code className="rounded bg-muted px-1">!@#$%</code>).
                     </p>
                   </div>
                   <Button type="submit" className="w-full" disabled={busy}>
@@ -259,7 +356,14 @@ function makeStrongPassword(len = 16) {
 }
 
 function PasswordStrength({ score, label }: { score: number; label: string }) {
-  const tone = score <= 1 ? "bg-destructive" : score <= 2 ? "bg-amber-500" : score <= 3 ? "bg-yellow-500" : "bg-green-500";
+  const tone =
+    score <= 1
+      ? "bg-destructive"
+      : score <= 2
+        ? "bg-amber-500"
+        : score <= 3
+          ? "bg-yellow-500"
+          : "bg-green-500";
   return (
     <div className="flex items-center gap-2 text-xs text-muted-foreground">
       <div className="flex gap-0.5">

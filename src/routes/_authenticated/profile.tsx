@@ -9,8 +9,26 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Flame, Zap, Loader2, Award, Upload, X, Linkedin, Github, MapPin, GraduationCap } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Trophy,
+  Flame,
+  Zap,
+  Loader2,
+  Award,
+  Upload,
+  X,
+  Linkedin,
+  Github,
+  MapPin,
+  GraduationCap,
+} from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { SKILL_OPTIONS } from "@/lib/skills";
 import { toast } from "sonner";
 
@@ -34,7 +52,11 @@ function ProfilePage() {
   const { data: profile, isLoading } = useQuery({
     queryKey: ["profile", user.id],
     queryFn: async () => {
-      const { data, error } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .maybeSingle();
       if (error) throw error;
       return data;
     },
@@ -43,7 +65,10 @@ function ProfilePage() {
   const { data: roles } = useQuery({
     queryKey: ["roles", user.id],
     queryFn: async () => {
-      const { data, error } = await supabase.from("user_roles").select("role").eq("user_id", user.id);
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id);
       if (error) throw error;
       return data.map((r) => r.role);
     },
@@ -90,11 +115,23 @@ function ProfilePage() {
       const postIdsRes = await supabase.from("posts").select("id").eq("author_id", user.id);
       const postIds = (postIdsRes.data ?? []).map((p) => p.id);
       const [postsCount, commentsCount, likesGiven, likesReceived] = await Promise.all([
-        supabase.from("posts").select("id", { count: "exact", head: true }).eq("author_id", user.id),
-        supabase.from("post_comments").select("id", { count: "exact", head: true }).eq("author_id", user.id),
-        supabase.from("post_likes").select("post_id", { count: "exact", head: true }).eq("user_id", user.id),
+        supabase
+          .from("posts")
+          .select("id", { count: "exact", head: true })
+          .eq("author_id", user.id),
+        supabase
+          .from("post_comments")
+          .select("id", { count: "exact", head: true })
+          .eq("author_id", user.id),
+        supabase
+          .from("post_likes")
+          .select("post_id", { count: "exact", head: true })
+          .eq("user_id", user.id),
         postIds.length
-          ? supabase.from("post_likes").select("post_id", { count: "exact", head: true }).in("post_id", postIds)
+          ? supabase
+              .from("post_likes")
+              .select("post_id", { count: "exact", head: true })
+              .in("post_id", postIds)
           : Promise.resolve({ count: 0 } as { count: number | null }),
       ]);
       return {
@@ -122,7 +159,9 @@ function ProfilePage() {
       const path = `${user.id}/avatar-${Date.now()}.${ext}`;
       const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
       if (error) throw error;
-      const { data } = await supabase.storage.from("avatars").createSignedUrl(path, 60 * 60 * 24 * 365);
+      const { data } = await supabase.storage
+        .from("avatars")
+        .createSignedUrl(path, 60 * 60 * 24 * 365);
       setAvatarUrl(data?.signedUrl ?? null);
       toast.success("Photo uploaded — remember to save");
     } catch (e) {
@@ -141,21 +180,24 @@ function ProfilePage() {
       if (!stateVal.trim()) throw new Error("State is required");
       if (!bio.trim()) throw new Error("Short bio is required");
       if (skills.length === 0) throw new Error("At least one skill is required");
-      const { error } = await supabase.from("profiles").update({
-        display_name: displayName.trim(),
-        bio: bio.trim(),
-        college: college || null,
-        city: city.trim(),
-        state: stateVal.trim(),
-        branch: branch || null,
-        course: course || null,
-        graduation_year: gradYear ? Number(gradYear) : null,
-        linkedin_url: linkedin.trim(),
-        github_url: github.trim(),
-        skills,
-        avatar_url: avatarUrl,
-        primary_role: primaryRole || null,
-      }).eq("id", user.id);
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          display_name: displayName.trim(),
+          bio: bio.trim(),
+          college: college || null,
+          city: city.trim(),
+          state: stateVal.trim(),
+          branch: branch || null,
+          course: course || null,
+          graduation_year: gradYear ? Number(gradYear) : null,
+          linkedin_url: linkedin.trim(),
+          github_url: github.trim(),
+          skills,
+          avatar_url: avatarUrl,
+          primary_role: primaryRole || null,
+        })
+        .eq("id", user.id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -166,7 +208,11 @@ function ProfilePage() {
   });
 
   if (isLoading || !profile) {
-    return <div className="grid place-items-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
+    return (
+      <div className="grid place-items-center py-20">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
   }
 
   const initials = (profile.display_name || user.email || "?").slice(0, 2).toUpperCase();
@@ -181,31 +227,77 @@ function ProfilePage() {
             <div className="relative">
               <Avatar className="h-24 w-24 border-4 border-card shadow-lg">
                 <AvatarImage src={avatarUrl ?? profile.avatar_url ?? undefined} />
-                <AvatarFallback className="text-2xl bg-primary text-primary-foreground">{initials}</AvatarFallback>
+                <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
+                  {initials}
+                </AvatarFallback>
               </Avatar>
               <label className="absolute -bottom-1 -right-1 grid h-8 w-8 place-items-center rounded-full bg-primary text-primary-foreground shadow cursor-pointer hover:bg-primary/90">
-                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && handleAvatar(e.target.files[0])} />
+                {uploading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Upload className="h-4 w-4" />
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => e.target.files?.[0] && handleAvatar(e.target.files[0])}
+                />
               </label>
             </div>
             <div className="flex-1 sm:pt-12">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-2xl font-bold">{profile.display_name}</h1>
                 {roles?.map((r) => (
-                  <Badge key={r} variant="secondary" className="capitalize">{r.replace("_", " ")}</Badge>
+                  <Badge key={r} variant="secondary" className="capitalize">
+                    {r.replace("_", " ")}
+                  </Badge>
                 ))}
               </div>
               <p className="text-sm text-muted-foreground mt-1">{user.email}</p>
               {profile.bio && <p className="mt-3 text-sm">{profile.bio}</p>}
               <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
-                {profile.college && <span className="inline-flex items-center gap-1"><GraduationCap className="h-3.5 w-3.5" /> {profile.college}{profile.branch ? ` · ${profile.branch}` : ""}{profile.graduation_year ? ` · ${profile.graduation_year}` : ""}</span>}
-                {(profile.city || profile.state) && <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> {[profile.city, profile.state].filter(Boolean).join(", ")}</span>}
-                {profile.linkedin_url && <a href={profile.linkedin_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-primary"><Linkedin className="h-3.5 w-3.5" /> LinkedIn</a>}
-                {profile.github_url && <a href={profile.github_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-primary"><Github className="h-3.5 w-3.5" /> GitHub</a>}
+                {profile.college && (
+                  <span className="inline-flex items-center gap-1">
+                    <GraduationCap className="h-3.5 w-3.5" /> {profile.college}
+                    {profile.branch ? ` · ${profile.branch}` : ""}
+                    {profile.graduation_year ? ` · ${profile.graduation_year}` : ""}
+                  </span>
+                )}
+                {(profile.city || profile.state) && (
+                  <span className="inline-flex items-center gap-1">
+                    <MapPin className="h-3.5 w-3.5" />{" "}
+                    {[profile.city, profile.state].filter(Boolean).join(", ")}
+                  </span>
+                )}
+                {profile.linkedin_url && (
+                  <a
+                    href={profile.linkedin_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 hover:text-primary"
+                  >
+                    <Linkedin className="h-3.5 w-3.5" /> LinkedIn
+                  </a>
+                )}
+                {profile.github_url && (
+                  <a
+                    href={profile.github_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 hover:text-primary"
+                  >
+                    <Github className="h-3.5 w-3.5" /> GitHub
+                  </a>
+                )}
               </div>
               {profile.skills && profile.skills.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-1.5">
-                  {profile.skills.map((s: string) => <Badge key={s} variant="outline" className="text-xs">{s}</Badge>)}
+                  {profile.skills.map((s: string) => (
+                    <Badge key={s} variant="outline" className="text-xs">
+                      {s}
+                    </Badge>
+                  ))}
                 </div>
               )}
             </div>
@@ -233,10 +325,21 @@ function ProfilePage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
-              <F label="Display name" className="col-span-2"><Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={60} /></F>
+              <F label="Display name" className="col-span-2">
+                <Input
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  maxLength={60}
+                />
+              </F>
               <F label="Role" className="col-span-2">
-                <Select value={primaryRole} onValueChange={(v) => setPrimaryRole(v as typeof primaryRole)}>
-                  <SelectTrigger><SelectValue placeholder="Select role" /></SelectTrigger>
+                <Select
+                  value={primaryRole}
+                  onValueChange={(v) => setPrimaryRole(v as typeof primaryRole)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="mentee">Mentee</SelectItem>
                     <SelectItem value="mentor">Mentor</SelectItem>
@@ -244,29 +347,92 @@ function ProfilePage() {
                   </SelectContent>
                 </Select>
               </F>
-              <F label="Bio" className="col-span-2"><Textarea rows={3} value={bio} onChange={(e) => setBio(e.target.value)} maxLength={280} /></F>
-              <F label="College" className="col-span-2"><Input value={college} onChange={(e) => setCollege(e.target.value)} maxLength={120} /></F>
-              <F label="Course"><Input value={course} onChange={(e) => setCourse(e.target.value)} maxLength={60} /></F>
-              <F label="Branch"><Input value={branch} onChange={(e) => setBranch(e.target.value)} maxLength={60} /></F>
-              <F label="Grad year"><Input type="number" value={gradYear} onChange={(e) => setGradYear(e.target.value)} /></F>
-              <F label="City"><Input value={city} onChange={(e) => setCity(e.target.value)} maxLength={60} /></F>
-              <F label="State" className="col-span-2"><Input value={stateVal} onChange={(e) => setStateVal(e.target.value)} maxLength={60} /></F>
-              <F label="LinkedIn URL" className="col-span-2"><Input value={linkedin} onChange={(e) => setLinkedin(e.target.value)} placeholder="https://linkedin.com/in/…" /></F>
-              <F label="GitHub URL" className="col-span-2"><Input value={github} onChange={(e) => setGithub(e.target.value)} placeholder="https://github.com/…" /></F>
+              <F label="Bio" className="col-span-2">
+                <Textarea
+                  rows={3}
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  maxLength={280}
+                />
+              </F>
+              <F label="College" className="col-span-2">
+                <Input
+                  value={college}
+                  onChange={(e) => setCollege(e.target.value)}
+                  maxLength={120}
+                />
+              </F>
+              <F label="Course">
+                <Input value={course} onChange={(e) => setCourse(e.target.value)} maxLength={60} />
+              </F>
+              <F label="Branch">
+                <Input value={branch} onChange={(e) => setBranch(e.target.value)} maxLength={60} />
+              </F>
+              <F label="Grad year">
+                <Input
+                  type="number"
+                  value={gradYear}
+                  onChange={(e) => setGradYear(e.target.value)}
+                />
+              </F>
+              <F label="City">
+                <Input value={city} onChange={(e) => setCity(e.target.value)} maxLength={60} />
+              </F>
+              <F label="State" className="col-span-2">
+                <Input
+                  value={stateVal}
+                  onChange={(e) => setStateVal(e.target.value)}
+                  maxLength={60}
+                />
+              </F>
+              <F label="LinkedIn URL" className="col-span-2">
+                <Input
+                  value={linkedin}
+                  onChange={(e) => setLinkedin(e.target.value)}
+                  placeholder="https://linkedin.com/in/…"
+                />
+              </F>
+              <F label="GitHub URL" className="col-span-2">
+                <Input
+                  value={github}
+                  onChange={(e) => setGithub(e.target.value)}
+                  placeholder="https://github.com/…"
+                />
+              </F>
               <F label="Skills" className="col-span-2">
                 <div className="flex gap-2">
-                  <Input list="profile-skills-list" value={skillInput} onChange={(e) => setSkillInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSkill(); } }} placeholder="Pick or type a skill…" />
+                  <Input
+                    list="profile-skills-list"
+                    value={skillInput}
+                    onChange={(e) => setSkillInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addSkill();
+                      }
+                    }}
+                    placeholder="Pick or type a skill…"
+                  />
                   <datalist id="profile-skills-list">
-                    {SKILL_OPTIONS.map((s) => <option key={s} value={s} />)}
+                    {SKILL_OPTIONS.map((s) => (
+                      <option key={s} value={s} />
+                    ))}
                   </datalist>
-                  <Button type="button" variant="secondary" onClick={addSkill}>Add</Button>
+                  <Button type="button" variant="secondary" onClick={addSkill}>
+                    Add
+                  </Button>
                 </div>
                 {skills.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mt-2">
                     {skills.map((s) => (
                       <Badge key={s} variant="secondary" className="gap-1">
                         {s}
-                        <button type="button" onClick={() => setSkills(skills.filter((x) => x !== s))}><X className="h-3 w-3" /></button>
+                        <button
+                          type="button"
+                          onClick={() => setSkills(skills.filter((x) => x !== s))}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
                       </Badge>
                     ))}
                   </div>
@@ -282,15 +448,22 @@ function ProfilePage() {
         {/* Badges */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Award className="h-5 w-5 text-accent" /> Badges</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Award className="h-5 w-5 text-accent" /> Badges
+            </CardTitle>
             <CardDescription>Earn badges by contributing to the cohort.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-3">
               {BADGES.map((b) => (
-                <div key={b.id} className={`rounded-lg border p-3 ${b.earned ? "bg-accent/10 border-accent/30" : "bg-muted/30 opacity-60"}`}>
+                <div
+                  key={b.id}
+                  className={`rounded-lg border p-3 ${b.earned ? "bg-accent/10 border-accent/30" : "bg-muted/30 opacity-60"}`}
+                >
                   <div className="flex items-center gap-2">
-                    <div className={`grid h-8 w-8 place-items-center rounded-lg ${b.earned ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground"}`}>
+                    <div
+                      className={`grid h-8 w-8 place-items-center rounded-lg ${b.earned ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground"}`}
+                    >
                       <Award className="h-4 w-4" />
                     </div>
                     <p className="text-sm font-semibold">{b.name}</p>
@@ -306,14 +479,37 @@ function ProfilePage() {
   );
 }
 
-function F({ label, className, children }: { label: string; className?: string; children: React.ReactNode }) {
-  return <div className={`space-y-1.5 ${className ?? ""}`}><Label className="text-xs">{label}</Label>{children}</div>;
+function F({
+  label,
+  className,
+  children,
+}: {
+  label: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={`space-y-1.5 ${className ?? ""}`}>
+      <Label className="text-xs">{label}</Label>
+      {children}
+    </div>
+  );
 }
 
-function MiniStat({ icon: Icon, label, value }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string }) {
+function MiniStat({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+}) {
   return (
     <div className="rounded-lg border bg-muted/30 p-3 text-center">
-      <div className="flex justify-center text-primary"><Icon className="h-4 w-4" /></div>
+      <div className="flex justify-center text-primary">
+        <Icon className="h-4 w-4" />
+      </div>
       <div className="mt-1 text-lg font-bold">{value}</div>
       <div className="text-xs text-muted-foreground uppercase tracking-wide">{label}</div>
     </div>

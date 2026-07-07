@@ -46,21 +46,40 @@ function ResetPasswordPage() {
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>Set a new password</CardTitle>
-          <CardDescription>Pick something strong — at least 12 characters with a mix of letters, numbers, and symbols.</CardDescription>
+          <CardDescription>
+            Pick something strong — at least 12 characters with a mix of letters, numbers, and
+            symbols.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {!ready ? (
             <div className="grid place-items-center py-6 text-sm text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin text-primary mb-2" />
-              Verifying reset link… If nothing happens, request a new link from the <Link to="/auth" className="text-primary underline ml-1">sign in page</Link>.
+              Verifying reset link… If nothing happens, request a new link from the{" "}
+              <Link to="/auth" className="text-primary underline ml-1">
+                sign in page
+              </Link>
+              .
             </div>
           ) : (
             <form onSubmit={handle} className="space-y-3">
               <div className="space-y-2">
                 <Label htmlFor="np">New password</Label>
                 <div className="relative">
-                  <Input id="np" type={show ? "text" : "password"} required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} className="pr-10" />
-                  <button type="button" onClick={() => setShow((v) => !v)} className="absolute inset-y-0 right-2 grid place-items-center text-muted-foreground">
+                  <Input
+                    id="np"
+                    type={show ? "text" : "password"}
+                    required
+                    minLength={8}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShow((v) => !v)}
+                    className="absolute inset-y-0 right-2 grid place-items-center text-muted-foreground"
+                  >
                     {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>

@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useRef, useState } from "react";
@@ -16,8 +16,19 @@ export const Route = createFileRoute("/_authenticated/pods")({
 });
 
 type Pod = { id: string; name: string; description: string | null; mentor_id: string | null };
-type PodMember = { id: string; user_id: string; member_role: string; profiles: { display_name: string; username: string | null; avatar_url: string | null } | null };
-type PodMessage = { id: string; author_id: string; content: string; created_at: string; profiles: { display_name: string; username: string | null; avatar_url: string | null } | null };
+type PodMember = {
+  id: string;
+  user_id: string;
+  member_role: string;
+  profiles: { display_name: string; username: string | null; avatar_url: string | null } | null;
+};
+type PodMessage = {
+  id: string;
+  author_id: string;
+  content: string;
+  created_at: string;
+  profiles: { display_name: string; username: string | null; avatar_url: string | null } | null;
+};
 
 function PodsPage() {
   const { user } = Route.useRouteContext();
@@ -27,11 +38,17 @@ function PodsPage() {
     queryKey: ["my-pods", user.id],
     queryFn: async () => {
       // Fetch pod ids I'm a member of, then fetch pods
-      const { data: memberships, error: mErr } = await supabase.from("pod_members").select("pod_id").eq("user_id", user.id);
+      const { data: memberships, error: mErr } = await supabase
+        .from("pod_members")
+        .select("pod_id")
+        .eq("user_id", user.id);
       if (mErr) throw mErr;
       const ids = (memberships ?? []).map((m: { pod_id: string }) => m.pod_id);
       if (ids.length === 0) return [] as Pod[];
-      const { data, error } = await supabase.from("pods").select("id, name, description, mentor_id").in("id", ids);
+      const { data, error } = await supabase
+        .from("pods")
+        .select("id, name, description, mentor_id")
+        .in("id", ids);
       if (error) throw error;
       return data as Pod[];
     },
@@ -41,17 +58,27 @@ function PodsPage() {
     if (!activePodId && pods && pods.length > 0) setActivePodId(pods[0].id);
   }, [pods, activePodId]);
 
-  if (isLoading) return <div className="grid place-items-center py-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
+  if (isLoading)
+    return (
+      <div className="grid place-items-center py-10">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
 
   if (!pods || pods.length === 0) {
     return (
       <div className="max-w-2xl mx-auto">
         <div className="text-center py-16">
-          <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl text-primary-foreground mb-4" style={{ background: "var(--gradient-primary)" }}>
+          <div
+            className="mx-auto grid h-14 w-14 place-items-center rounded-2xl text-primary-foreground mb-4"
+            style={{ background: "var(--gradient-primary)" }}
+          >
             <UsersRound className="h-7 w-7" />
           </div>
           <h1 className="text-2xl font-bold">No pod yet</h1>
-          <p className="text-muted-foreground mt-2">Your admin will assign you to a pod with a mentor and up to 7 cohort sisters.</p>
+          <p className="text-muted-foreground mt-2">
+            Your admin will assign you to a pod with a mentor and up to 7 cohort sisters.
+          </p>
         </div>
       </div>
     );
@@ -61,7 +88,9 @@ function PodsPage() {
     <div className="max-w-5xl mx-auto space-y-4">
       <div>
         <h1 className="text-3xl font-bold">Your Pods</h1>
-        <p className="text-muted-foreground">Small mentor-led group. Chat is private to your pod.</p>
+        <p className="text-muted-foreground">
+          Small mentor-led group. Chat is private to your pod.
+        </p>
       </div>
       {pods.length > 1 && (
         <div className="flex gap-2 overflow-x-auto no-scrollbar">
@@ -92,7 +121,9 @@ function PodView({ podId, pod }: { podId: string; pod: Pod }) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("pod_members")
-        .select("id, user_id, member_role, profiles!pod_members_user_id_fkey(display_name, username, avatar_url)")
+        .select(
+          "id, user_id, member_role, profiles!pod_members_user_id_fkey(display_name, username, avatar_url)",
+        )
         .eq("pod_id", podId);
       if (error) throw error;
       return data as unknown as PodMember[];
@@ -104,7 +135,9 @@ function PodView({ podId, pod }: { podId: string; pod: Pod }) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("pod_messages")
-        .select("id, author_id, content, created_at, profiles!pod_messages_author_id_fkey(display_name, username, avatar_url)")
+        .select(
+          "id, author_id, content, created_at, profiles!pod_messages_author_id_fkey(display_name, username, avatar_url)",
+        )
         .eq("pod_id", podId)
         .order("created_at", { ascending: true })
         .limit(200);
@@ -120,18 +153,26 @@ function PodView({ podId, pod }: { podId: string; pod: Pod }) {
   useEffect(() => {
     const channel = supabase
       .channel(`pod-${podId}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "pod_messages", filter: `pod_id=eq.${podId}` }, () => {
-        qc.invalidateQueries({ queryKey: ["pod-messages", podId] });
-      })
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "pod_messages", filter: `pod_id=eq.${podId}` },
+        () => {
+          qc.invalidateQueries({ queryKey: ["pod-messages", podId] });
+        },
+      )
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [podId, qc]);
 
   const send = useMutation({
     mutationFn: async () => {
       const t = text.trim();
       if (!t) throw new Error("Empty message");
-      const { error } = await supabase.from("pod_messages").insert({ pod_id: podId, author_id: user.id, content: t });
+      const { error } = await supabase
+        .from("pod_messages")
+        .insert({ pod_id: podId, author_id: user.id, content: t });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -150,23 +191,48 @@ function PodView({ podId, pod }: { podId: string; pod: Pod }) {
         </CardHeader>
         <CardContent className="flex-1 overflow-y-auto p-4 space-y-3" ref={scrollRef}>
           {(messages ?? []).length === 0 ? (
-            <p className="text-center text-sm text-muted-foreground py-8">No messages yet. Say hi 👋</p>
+            <p className="text-center text-sm text-muted-foreground py-8">
+              No messages yet. Say hi 👋
+            </p>
           ) : (
             (messages ?? []).map((m) => {
               const mine = m.author_id === user.id;
               const ini = (m.profiles?.display_name || "?").slice(0, 2).toUpperCase();
               return (
                 <div key={m.id} className={`flex gap-2 ${mine ? "flex-row-reverse" : ""}`}>
-                  <Avatar className="h-7 w-7 shrink-0"><AvatarImage src={m.profiles?.avatar_url ?? undefined} /><AvatarFallback className="text-[10px] bg-primary/10 text-primary">{ini}</AvatarFallback></Avatar>
-                  <div className={`max-w-[75%] rounded-2xl px-3 py-2 ${mine ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+                  <Link to="/u/$id" params={{ id: m.author_id }}>
+                    <Avatar className="h-7 w-7 shrink-0 hover:opacity-85 transition">
+                      <AvatarImage src={m.profiles?.avatar_url ?? undefined} />
+                      <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
+                        {ini}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Link>
+                  <div
+                    className={`max-w-[75%] rounded-2xl px-3 py-2 ${mine ? "bg-primary text-primary-foreground" : "bg-muted"}`}
+                  >
                     {!mine && (
                       <p className="text-[10px] font-semibold opacity-80">
-                        {m.profiles?.display_name ?? "Someone"}
-                        {m.profiles?.username && <span className="ml-1 font-normal opacity-70">@{m.profiles.username}</span>}
+                        <Link to="/u/$id" params={{ id: m.author_id }} className="hover:underline">
+                          {m.profiles?.display_name ?? "Someone"}
+                        </Link>
+                        {m.profiles?.username && (
+                          <Link
+                            to="/u/$id"
+                            params={{ id: m.author_id }}
+                            className="ml-1 font-normal opacity-70 hover:underline"
+                          >
+                            @{m.profiles.username}
+                          </Link>
+                        )}
                       </p>
                     )}
                     <p className="text-sm whitespace-pre-wrap break-words">{m.content}</p>
-                    <p className={`text-[9px] mt-0.5 ${mine ? "opacity-70" : "text-muted-foreground"}`}>{formatDistanceToNow(new Date(m.created_at), { addSuffix: true })}</p>
+                    <p
+                      className={`text-[9px] mt-0.5 ${mine ? "opacity-70" : "text-muted-foreground"}`}
+                    >
+                      {formatDistanceToNow(new Date(m.created_at), { addSuffix: true })}
+                    </p>
                   </div>
                 </div>
               );
@@ -174,27 +240,71 @@ function PodView({ podId, pod }: { podId: string; pod: Pod }) {
           )}
         </CardContent>
         <div className="border-t p-3 flex gap-2">
-          <Textarea rows={1} value={text} onChange={(e) => setText(e.target.value)} placeholder="Message your pod…" className="min-h-[40px]"
-            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send.mutate(); } }} />
+          <Textarea
+            rows={1}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Message your pod…"
+            className="min-h-[40px]"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                send.mutate();
+              }
+            }}
+          />
           <Button onClick={() => send.mutate()} disabled={send.isPending}>
-            {send.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            {send.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
           </Button>
         </div>
       </Card>
       <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-sm">Pod members ({(members ?? []).length})</CardTitle></CardHeader>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Pod members ({(members ?? []).length})</CardTitle>
+        </CardHeader>
         <CardContent className="space-y-2">
           {(members ?? []).map((m) => {
             const ini = (m.profiles?.display_name || "?").slice(0, 2).toUpperCase();
-            const roleLabel = m.member_role === "mentor" ? "Mentor" : m.member_role === "team_member" ? "Team" : "Mentee";
+            const roleLabel =
+              m.member_role === "mentor"
+                ? "Mentor"
+                : m.member_role === "team_member"
+                  ? "Team"
+                  : "Mentee";
             return (
               <div key={m.id} className="flex items-center gap-2">
-                <Avatar className="h-8 w-8"><AvatarImage src={m.profiles?.avatar_url ?? undefined} /><AvatarFallback className="text-xs bg-primary/10 text-primary">{ini}</AvatarFallback></Avatar>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{m.profiles?.display_name ?? "Someone"}</p>
-                  {m.profiles?.username && <p className="text-[10px] text-muted-foreground truncate">@{m.profiles.username}</p>}
-                </div>
-                <Badge variant={m.member_role === "mentor" ? "default" : "outline"} className="text-[10px]">{roleLabel}</Badge>
+                <Link
+                  to="/u/$id"
+                  params={{ id: m.user_id }}
+                  className="flex items-center gap-2 flex-1 min-w-0 hover:opacity-85 transition"
+                >
+                  <Avatar className="h-8 w-8 shrink-0">
+                    <AvatarImage src={m.profiles?.avatar_url ?? undefined} />
+                    <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                      {ini}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate hover:underline">
+                      {m.profiles?.display_name ?? "Someone"}
+                    </p>
+                    {m.profiles?.username && (
+                      <p className="text-[10px] text-muted-foreground truncate">
+                        @{m.profiles.username}
+                      </p>
+                    )}
+                  </div>
+                </Link>
+                <Badge
+                  variant={m.member_role === "mentor" ? "default" : "outline"}
+                  className="text-[10px] shrink-0"
+                >
+                  {roleLabel}
+                </Badge>
               </div>
             );
           })}

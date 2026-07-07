@@ -8,8 +8,26 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Heart, Loader2, Trash2, Pencil, X, Check, MessageCircle, Send, ImagePlus, LinkIcon, ExternalLink } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Heart,
+  Loader2,
+  Trash2,
+  Pencil,
+  X,
+  Check,
+  MessageCircle,
+  Send,
+  ImagePlus,
+  LinkIcon,
+  ExternalLink,
+} from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 
@@ -33,11 +51,24 @@ const CATEGORY_BADGE: Record<string, string> = {
 function renderMentions(text: string) {
   const parts = text.split(/(@[a-zA-Z0-9_]{2,30})/g);
   return parts.map((p, i) =>
-    p.startsWith("@") ? <span key={i} className="text-primary font-medium">{p}</span> : <span key={i}>{p}</span>
+    p.startsWith("@") ? (
+      <span key={i} className="text-primary font-medium">
+        {p}
+      </span>
+    ) : (
+      <span key={i}>{p}</span>
+    ),
   );
 }
 
-function CommentsThread({ postId, currentUserId, draft, onDraft, onSubmit, submitting }: {
+function CommentsThread({
+  postId,
+  currentUserId,
+  draft,
+  onDraft,
+  onSubmit,
+  submitting,
+}: {
   postId: string;
   currentUserId: string;
   draft: string;
@@ -51,7 +82,9 @@ function CommentsThread({ postId, currentUserId, draft, onDraft, onSubmit, submi
     queryFn: async () => {
       const { data, error } = await supabase
         .from("post_comments")
-        .select("id, post_id, author_id, content, created_at, profiles!post_comments_author_profile_fkey(display_name, username, avatar_url)")
+        .select(
+          "id, post_id, author_id, content, created_at, profiles!post_comments_author_profile_fkey(display_name, username, avatar_url)",
+        )
         .eq("post_id", postId)
         .order("created_at", { ascending: true });
       if (error) throw error;
@@ -80,18 +113,48 @@ function CommentsThread({ postId, currentUserId, draft, onDraft, onSubmit, submi
           const ini = (c.profiles?.display_name || "?").slice(0, 2).toUpperCase();
           return (
             <div key={c.id} className="flex gap-2">
-              <Avatar className="h-7 w-7"><AvatarImage src={c.profiles?.avatar_url ?? undefined} /><AvatarFallback className="text-[10px] bg-primary/10 text-primary">{ini}</AvatarFallback></Avatar>
+              <Link to="/u/$id" params={{ id: c.author_id }}>
+                <Avatar className="h-7 w-7 hover:opacity-85 transition">
+                  <AvatarImage src={c.profiles?.avatar_url ?? undefined} />
+                  <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
+                    {ini}
+                  </AvatarFallback>
+                </Avatar>
+              </Link>
               <div className="flex-1 rounded-lg bg-muted/50 px-3 py-2">
                 <div className="flex items-baseline gap-2 flex-wrap">
-                  <p className="text-xs font-semibold">
-                    {c.profiles?.display_name ?? "Someone"}
-                    {c.profiles?.username && <span className="ml-1 font-normal text-muted-foreground">@{c.profiles.username}</span>}
+                  <p className="text-xs font-semibold flex items-center gap-1">
+                    <Link
+                      to="/u/$id"
+                      params={{ id: c.author_id }}
+                      className="hover:underline font-semibold text-foreground/90"
+                    >
+                      {c.profiles?.display_name ?? "Someone"}
+                    </Link>
+                    {c.profiles?.username && (
+                      <Link
+                        to="/u/$id"
+                        params={{ id: c.author_id }}
+                        className="hover:underline text-[10px] font-normal text-muted-foreground"
+                      >
+                        @{c.profiles.username}
+                      </Link>
+                    )}
                   </p>
-                  <p className="text-[10px] text-muted-foreground">{formatDistanceToNow(new Date(c.created_at), { addSuffix: true })}</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {formatDistanceToNow(new Date(c.created_at), { addSuffix: true })}
+                  </p>
                 </div>
-                <p className="text-sm whitespace-pre-wrap break-words">{renderMentions(c.content)}</p>
+                <p className="text-sm whitespace-pre-wrap break-words">
+                  {renderMentions(c.content)}
+                </p>
                 {c.author_id === currentUserId && (
-                  <button onClick={() => del.mutate(c.id)} className="mt-1 text-[10px] text-muted-foreground hover:text-destructive">Delete</button>
+                  <button
+                    onClick={() => del.mutate(c.id)}
+                    className="mt-1 text-[10px] text-muted-foreground hover:text-destructive"
+                  >
+                    Delete
+                  </button>
                 )}
               </div>
             </div>
@@ -99,7 +162,14 @@ function CommentsThread({ postId, currentUserId, draft, onDraft, onSubmit, submi
         })
       )}
       <div className="flex gap-2">
-        <Textarea rows={1} value={draft} onChange={(e) => onDraft(e.target.value)} maxLength={1000} placeholder="Write a reply… tag with @username" className="min-h-[40px]" />
+        <Textarea
+          rows={1}
+          value={draft}
+          onChange={(e) => onDraft(e.target.value)}
+          maxLength={1000}
+          placeholder="Write a reply… tag with @username"
+          className="min-h-[40px]"
+        />
         <Button size="sm" onClick={onSubmit} disabled={submitting || !draft.trim()}>
           {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
         </Button>
@@ -150,7 +220,9 @@ function FeedPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("posts")
-        .select("id, author_id, content, created_at, image_url, link_url, category, profiles!posts_author_profile_fkey(display_name, username, avatar_url), post_likes(user_id), post_comments(id)")
+        .select(
+          "id, author_id, content, created_at, image_url, link_url, category, profiles!posts_author_profile_fkey(display_name, username, avatar_url), post_likes(user_id), post_comments(id)",
+        )
         .order("created_at", { ascending: false })
         .limit(50);
       if (error) throw error;
@@ -158,9 +230,10 @@ function FeedPage() {
     },
   });
 
-  const filteredPosts = filterCategory === "all"
-    ? (posts ?? [])
-    : (posts ?? []).filter((p) => p.category === filterCategory);
+  const filteredPosts =
+    filterCategory === "all"
+      ? (posts ?? [])
+      : (posts ?? []).filter((p) => p.category === filterCategory);
 
   async function handleImage(file: File) {
     if (file.size > 5 * 1024 * 1024) return toast.error("Image must be under 5MB");
@@ -170,7 +243,9 @@ function FeedPage() {
       const path = `${user.id}/post-${Date.now()}.${ext}`;
       const up = await supabase.storage.from("post-images").upload(path, file, { upsert: false });
       if (up.error) throw up.error;
-      const signed = await supabase.storage.from("post-images").createSignedUrl(path, 60 * 60 * 24 * 365);
+      const signed = await supabase.storage
+        .from("post-images")
+        .createSignedUrl(path, 60 * 60 * 24 * 365);
       if (signed.error) throw signed.error;
       setImageUrl(signed.data.signedUrl);
     } catch (e) {
@@ -185,7 +260,9 @@ function FeedPage() {
       const text = content.trim();
       if (!text) throw new Error("Write something");
       if (text.length > 1000) throw new Error("Max 1000 chars");
-      const { error } = await supabase.from("post_comments").insert({ post_id: postId, author_id: user.id, content: text });
+      const { error } = await supabase
+        .from("post_comments")
+        .insert({ post_id: postId, author_id: user.id, content: text });
       if (error) throw error;
     },
     onSuccess: (_d, vars) => {
@@ -267,30 +344,66 @@ function FeedPage() {
     <div className="max-w-2xl mx-auto space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Cohort Feed</h1>
-        <p className="text-muted-foreground">Share wins, badges, questions, or what you're building today.</p>
+        <p className="text-muted-foreground">
+          Share wins, badges, questions, or what you're building today.
+        </p>
       </div>
 
       <Card>
-        <CardHeader><CardTitle>Share an update</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>Share an update</CardTitle>
+        </CardHeader>
         <CardContent className="space-y-3">
-          <Textarea rows={3} value={content} onChange={(e) => setContent(e.target.value)} maxLength={2000} placeholder="What are you working on? Share a LeetCode/GfG badge, a win, or a question…" />
+          <Textarea
+            rows={3}
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            maxLength={2000}
+            placeholder="What are you working on? Share a LeetCode/GfG badge, a win, or a question…"
+          />
           {imageUrl && (
             <div className="relative w-full">
-              <img src={imageUrl} alt="preview" className="rounded-lg max-h-72 object-contain border" />
-              <button onClick={() => setImageUrl(null)} className="absolute top-2 right-2 grid h-7 w-7 place-items-center rounded-full bg-black/60 text-white hover:bg-black/80"><X className="h-3.5 w-3.5" /></button>
+              <img
+                src={imageUrl}
+                alt="preview"
+                className="rounded-lg max-h-72 object-contain border"
+              />
+              <button
+                onClick={() => setImageUrl(null)}
+                className="absolute top-2 right-2 grid h-7 w-7 place-items-center rounded-full bg-black/60 text-white hover:bg-black/80"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
             </div>
           )}
           {showLinkInput && (
-            <Input placeholder="Paste a link (LeetCode profile, badge, article…)" value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} />
+            <Input
+              placeholder="Paste a link (LeetCode profile, badge, article…)"
+              value={linkUrl}
+              onChange={(e) => setLinkUrl(e.target.value)}
+            />
           )}
           <div className="flex justify-between items-center gap-2 flex-wrap">
             <div className="flex items-center gap-2">
               <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary cursor-pointer">
-                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
+                {uploading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ImagePlus className="h-4 w-4" />
+                )}
                 Photo
-                <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && handleImage(e.target.files[0])} />
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => e.target.files?.[0] && handleImage(e.target.files[0])}
+                />
               </label>
-              <button type="button" onClick={() => setShowLinkInput((v) => !v)} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary">
+              <button
+                type="button"
+                onClick={() => setShowLinkInput((v) => !v)}
+                className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary"
+              >
                 <LinkIcon className="h-4 w-4" /> Link
               </button>
               <Select value={postCategory} onValueChange={setPostCategory}>
@@ -305,7 +418,12 @@ function FeedPage() {
               </Select>
               <span className="text-xs text-muted-foreground">{content.length}/2000</span>
             </div>
-            <Button onClick={() => create.mutate()} disabled={create.isPending || uploading} style={{ background: "var(--gradient-primary)" }} className="text-primary-foreground">
+            <Button
+              onClick={() => create.mutate()}
+              disabled={create.isPending || uploading}
+              style={{ background: "var(--gradient-primary)" }}
+              className="text-primary-foreground"
+            >
               {create.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Post
             </Button>
           </div>
@@ -335,10 +453,14 @@ function FeedPage() {
       </div>
 
       {isLoading ? (
-        <div className="grid place-items-center py-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+        <div className="grid place-items-center py-10">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </div>
       ) : filteredPosts.length === 0 ? (
         <p className="text-center text-muted-foreground py-8">
-          {filterCategory === "all" ? "No posts yet. Be the first! 💫" : `No ${filterCategory} posts yet.`}
+          {filterCategory === "all"
+            ? "No posts yet. Be the first! 💫"
+            : `No ${filterCategory} posts yet.`}
         </p>
       ) : (
         <div className="space-y-4">
@@ -353,21 +475,46 @@ function FeedPage() {
                     <Link to="/u/$id" params={{ id: p.author_id }}>
                       <Avatar className="h-10 w-10">
                         <AvatarImage src={p.profiles?.avatar_url ?? undefined} />
-                        <AvatarFallback className="bg-primary text-primary-foreground text-sm">{initials}</AvatarFallback>
+                        <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                          {initials}
+                        </AvatarFallback>
                       </Avatar>
                     </Link>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <Link to="/u/$id" params={{ id: p.author_id }} className="font-semibold text-sm hover:underline">{p.profiles?.display_name ?? "Someone"}</Link>
-                        {p.profiles?.username && <span className="text-xs text-muted-foreground">@{p.profiles.username}</span>}
-                        <p className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(p.created_at), { addSuffix: true })}</p>
-                        <Badge variant="outline" className={`text-[10px] capitalize ${catStyle}`}>{p.category}</Badge>
+                        <Link
+                          to="/u/$id"
+                          params={{ id: p.author_id }}
+                          className="font-semibold text-sm hover:underline"
+                        >
+                          {p.profiles?.display_name ?? "Someone"}
+                        </Link>
+                        {p.profiles?.username && (
+                          <span className="text-xs text-muted-foreground">
+                            @{p.profiles.username}
+                          </span>
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                          {formatDistanceToNow(new Date(p.created_at), { addSuffix: true })}
+                        </p>
+                        <Badge variant="outline" className={`text-[10px] capitalize ${catStyle}`}>
+                          {p.category}
+                        </Badge>
                       </div>
                       {editingId === p.id ? (
                         <div className="mt-2 space-y-2">
-                          <Textarea rows={3} value={editContent} onChange={(e) => setEditContent(e.target.value)} maxLength={2000} />
+                          <Textarea
+                            rows={3}
+                            value={editContent}
+                            onChange={(e) => setEditContent(e.target.value)}
+                            maxLength={2000}
+                          />
                           <div className="flex gap-2">
-                            <Button size="sm" onClick={() => update.mutate({ id: p.id, content: editContent })} disabled={update.isPending}>
+                            <Button
+                              size="sm"
+                              onClick={() => update.mutate({ id: p.id, content: editContent })}
+                              disabled={update.isPending}
+                            >
                               <Check className="h-3.5 w-3.5 mr-1" /> Save
                             </Button>
                             <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>
@@ -377,27 +524,59 @@ function FeedPage() {
                         </div>
                       ) : (
                         <>
-                          {p.content && <p className="mt-1 text-sm whitespace-pre-wrap break-words">{renderMentions(p.content)}</p>}
-                          {p.image_url && <img src={p.image_url} alt="" className="mt-2 rounded-lg max-h-96 object-contain border" />}
+                          {p.content && (
+                            <p className="mt-1 text-sm whitespace-pre-wrap break-words">
+                              {renderMentions(p.content)}
+                            </p>
+                          )}
+                          {p.image_url && (
+                            <img
+                              src={p.image_url}
+                              alt=""
+                              className="mt-2 rounded-lg max-h-96 object-contain border"
+                            />
+                          )}
                           {p.link_url && (
-                            <a href={p.link_url} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1.5 text-xs text-primary hover:underline break-all">
+                            <a
+                              href={p.link_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="mt-2 inline-flex items-center gap-1.5 text-xs text-primary hover:underline break-all"
+                            >
                               <ExternalLink className="h-3.5 w-3.5 shrink-0" /> {p.link_url}
                             </a>
                           )}
                         </>
                       )}
                       <div className="flex items-center gap-4 mt-3">
-                        <button onClick={() => toggleLike.mutate({ postId: p.id, liked })} className={`inline-flex items-center gap-1.5 text-xs ${liked ? "text-primary" : "text-muted-foreground"} hover:text-primary`}>
-                          <Heart className={`h-4 w-4 ${liked ? "fill-current" : ""}`} /> {p.post_likes.length}
+                        <button
+                          onClick={() => toggleLike.mutate({ postId: p.id, liked })}
+                          className={`inline-flex items-center gap-1.5 text-xs ${liked ? "text-primary" : "text-muted-foreground"} hover:text-primary`}
+                        >
+                          <Heart className={`h-4 w-4 ${liked ? "fill-current" : ""}`} />{" "}
+                          {p.post_likes.length}
                         </button>
-                        <button onClick={() => setOpenComments((s) => ({ ...s, [p.id]: !s[p.id] }))} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary">
+                        <button
+                          onClick={() => setOpenComments((s) => ({ ...s, [p.id]: !s[p.id] }))}
+                          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary"
+                        >
                           <MessageCircle className="h-4 w-4" /> {p.post_comments?.length ?? 0}
                         </button>
                         {p.author_id === user.id && editingId !== p.id && (
                           <>
-                            <button onClick={() => { setEditingId(p.id); setEditContent(p.content); }} className="text-xs text-muted-foreground hover:text-primary inline-flex items-center gap-1"><Pencil className="h-3.5 w-3.5" /> Edit</button>
                             <button
-                              onClick={() => { if (confirm("Delete this post?")) remove.mutate(p.id); }}
+                              onClick={() => {
+                                setEditingId(p.id);
+                                setEditContent(p.content);
+                              }}
+                              className="text-xs text-muted-foreground hover:text-primary inline-flex items-center gap-1"
+                            >
+                              <Pencil className="h-3.5 w-3.5" /> Edit
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (confirm("Delete this post?")) remove.mutate(p.id);
+                              }}
                               disabled={remove.isPending}
                               className="text-xs text-muted-foreground hover:text-destructive inline-flex items-center gap-1 disabled:opacity-50"
                             >
@@ -412,7 +591,9 @@ function FeedPage() {
                           currentUserId={user.id}
                           draft={commentDrafts[p.id] ?? ""}
                           onDraft={(v) => setCommentDrafts((s) => ({ ...s, [p.id]: v }))}
-                          onSubmit={() => addComment.mutate({ postId: p.id, content: commentDrafts[p.id] ?? "" })}
+                          onSubmit={() =>
+                            addComment.mutate({ postId: p.id, content: commentDrafts[p.id] ?? "" })
+                          }
                           submitting={addComment.isPending}
                         />
                       )}
