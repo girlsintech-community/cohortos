@@ -657,6 +657,7 @@ export type Database = {
         Args: { _amount: number; _meta?: Json; _type: string; _user: string }
         Returns: undefined
       }
+      find_profile_by_email: { Args: { _email: string }; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
