@@ -26,7 +26,7 @@ function Landing() {
           <span className="bg-clip-text text-transparent" style={{ backgroundImage: "var(--gradient-primary)" }}>DSA Cohort</span>
         </h1>
         <p className="mt-5 text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto px-2">
-          A 5-week gamified home base to level up your Data Structures & Algorithms. Earn XP, climb leaderboards, and grow together with your cohort sisters.
+          A 4-week gamified home base to level up your Data Structures & Algorithms. Earn XP, climb leaderboards, and grow together with your cohort sisters.
         </p>
         <div className="mt-8 flex flex-col sm:flex-row justify-center gap-3 px-4 sm:px-0">
           <Link to="/auth"><Button size="lg" className="w-full sm:w-auto text-base px-8">Join the cohort <ArrowRight className="ml-1.5 h-4 w-4" /></Button></Link>
@@ -37,7 +37,7 @@ function Landing() {
           {[
             { n: "120+", l: "Mentees" },
             { n: "25", l: "Mentors" },
-            { n: "5 wk", l: "Cohort" },
+            { n: "4 weeks", l: "Cohort" },
           ].map((s) => (
             <div key={s.l} className="rounded-2xl border bg-card p-4 sm:p-6" style={{ boxShadow: "var(--shadow-card)" }}>
               <div className="text-2xl sm:text-3xl font-extrabold bg-clip-text text-transparent" style={{ backgroundImage: "var(--gradient-primary)" }}>{s.n}</div>
