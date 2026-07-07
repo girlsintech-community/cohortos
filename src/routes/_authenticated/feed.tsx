@@ -377,7 +377,7 @@ function FeedPage() {
                         </div>
                       ) : (
                         <>
-                          {p.content && <p className="mt-1 text-sm whitespace-pre-wrap break-words">{p.content}</p>}
+                          {p.content && <p className="mt-1 text-sm whitespace-pre-wrap break-words">{renderMentions(p.content)}</p>}
                           {p.image_url && <img src={p.image_url} alt="" className="mt-2 rounded-lg max-h-96 object-contain border" />}
                           {p.link_url && (
                             <a href={p.link_url} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1.5 text-xs text-primary hover:underline break-all">
