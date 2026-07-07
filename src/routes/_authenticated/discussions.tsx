@@ -23,7 +23,7 @@ type Discussion = {
   body: string;
   tag: string | null;
   created_at: string;
-  profiles: { display_name: string; avatar_url: string | null } | null;
+  profiles: { display_name: string; username: string | null; avatar_url: string | null } | null;
   discussion_replies: { count: number }[];
 };
 
@@ -40,7 +40,7 @@ function DiscussionsPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("discussions")
-        .select("id, author_id, title, body, tag, created_at, profiles!discussions_author_profile_fkey(display_name, avatar_url), discussion_replies(count)")
+        .select("id, author_id, title, body, tag, created_at, profiles!discussions_author_profile_fkey(display_name, username, avatar_url), discussion_replies(count)")
         .order("created_at", { ascending: false })
         .limit(50);
       if (error) throw error;
@@ -117,7 +117,9 @@ function DiscussionCard({ d, open, onToggle }: { d: Discussion; open: boolean; o
               <div>
                 <h3 className="font-semibold">{d.title}</h3>
                 <p className="text-xs text-muted-foreground">
-                  {d.profiles?.display_name ?? "Someone"} · {formatDistanceToNow(new Date(d.created_at), { addSuffix: true })}
+                  {d.profiles?.display_name ?? "Someone"}
+                  {d.profiles?.username && <span className="ml-1">@{d.profiles.username}</span>}
+                  {" · "}{formatDistanceToNow(new Date(d.created_at), { addSuffix: true })}
                 </p>
               </div>
               {d.tag && <Badge variant="secondary">{d.tag}</Badge>}
@@ -145,11 +147,11 @@ function RepliesPanel({ discussionId }: { discussionId: string }) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("discussion_replies")
-        .select("id, author_id, body, created_at, profiles!discussion_replies_author_profile_fkey(display_name, avatar_url)")
+        .select("id, author_id, body, created_at, profiles!discussion_replies_author_profile_fkey(display_name, username, avatar_url)")
         .eq("discussion_id", discussionId)
         .order("created_at", { ascending: true });
       if (error) throw error;
-      return data as unknown as Array<{ id: string; author_id: string; body: string; created_at: string; profiles: { display_name: string; avatar_url: string | null } | null }>;
+      return data as unknown as Array<{ id: string; author_id: string; body: string; created_at: string; profiles: { display_name: string; username: string | null; avatar_url: string | null } | null }>;
     },
   });
 
@@ -175,18 +177,29 @@ function RepliesPanel({ discussionId }: { discussionId: string }) {
           <div key={r.id} className="flex gap-2">
             <Avatar className="h-7 w-7"><AvatarImage src={r.profiles?.avatar_url ?? undefined} /><AvatarFallback className="text-xs">{ini}</AvatarFallback></Avatar>
             <div className="flex-1 rounded-lg bg-muted/50 px-3 py-2">
-              <p className="text-xs font-medium">{r.profiles?.display_name ?? "Someone"} <span className="text-muted-foreground font-normal">· {formatDistanceToNow(new Date(r.created_at), { addSuffix: true })}</span></p>
-              <p className="text-sm mt-0.5 whitespace-pre-wrap break-words">{r.body}</p>
+              <p className="text-xs font-medium">
+                {r.profiles?.display_name ?? "Someone"}
+                {r.profiles?.username && <span className="ml-1 text-muted-foreground font-normal">@{r.profiles.username}</span>}
+                <span className="text-muted-foreground font-normal"> · {formatDistanceToNow(new Date(r.created_at), { addSuffix: true })}</span>
+              </p>
+              <p className="text-sm mt-0.5 whitespace-pre-wrap break-words">{renderMentions(r.body)}</p>
             </div>
           </div>
         );
       })}
       <div className="flex gap-2">
-        <Textarea rows={2} value={text} onChange={(e) => setText(e.target.value)} placeholder="Add a reply…" />
+        <Textarea rows={2} value={text} onChange={(e) => setText(e.target.value)} placeholder="Add a reply… tag with @username" />
         <Button size="sm" onClick={() => reply.mutate()} disabled={reply.isPending}>
           <Send className="h-4 w-4" />
         </Button>
       </div>
     </div>
+  );
+}
+
+function renderMentions(text: string) {
+  const parts = text.split(/(@[a-zA-Z0-9_]{2,30})/g);
+  return parts.map((p, i) =>
+    p.startsWith("@") ? <span key={i} className="text-primary font-medium">{p}</span> : <span key={i}>{p}</span>
   );
 }
