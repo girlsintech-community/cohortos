@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, CheckCircle2, XCircle, Trash2, Users, Rss, MessagesSquare, Target, Trophy, Flame, Heart, Mail, BookOpen, Search } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Trash2, Users, Rss, MessagesSquare, Target, Trophy, Flame, Heart, Mail, BookOpen, Search, UsersRound, Shield, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/admin")({
@@ -31,6 +31,7 @@ function AdminPage() {
         <TabsList className="flex-wrap">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="members">Members</TabsTrigger>
+          <TabsTrigger value="pods">Pods</TabsTrigger>
           <TabsTrigger value="submissions">Submissions</TabsTrigger>
           <TabsTrigger value="challenges">Challenges</TabsTrigger>
           <TabsTrigger value="allowlist">Allowlist</TabsTrigger>
@@ -38,6 +39,7 @@ function AdminPage() {
         </TabsList>
         <TabsContent value="overview" className="mt-4"><OverviewPanel /></TabsContent>
         <TabsContent value="members" className="mt-4"><MembersPanel /></TabsContent>
+        <TabsContent value="pods" className="mt-4"><PodsPanel /></TabsContent>
         <TabsContent value="submissions" className="mt-4"><SubmissionsPanel /></TabsContent>
         <TabsContent value="challenges" className="mt-4"><ChallengesPanel /></TabsContent>
         <TabsContent value="allowlist" className="mt-4"><AllowlistPanel /></TabsContent>
