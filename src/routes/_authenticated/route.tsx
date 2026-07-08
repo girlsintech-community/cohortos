@@ -54,11 +54,20 @@ export const Route = createFileRoute("/_authenticated")({
       Array.isArray(p?.skills) &&
       p.skills.length > 0;
 
-    // If any required field is missing, send to onboarding
-    if (!hasAllRequired && location.pathname !== "/onboarding") {
+    const { data: guideConfirmation } = await (supabase as any)
+      .from("user_guide_confirmations")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("guide_version", "2026-07-08")
+      .maybeSingle();
+
+    const hasCompletedEntry = hasAllRequired && !!guideConfirmation;
+
+    // If any required field or guide confirmation is missing, send to onboarding
+    if (!hasCompletedEntry && location.pathname !== "/onboarding") {
       throw redirect({ to: "/onboarding" });
     }
-    if (hasAllRequired && location.pathname === "/onboarding") {
+    if (hasCompletedEntry && location.pathname === "/onboarding") {
       throw redirect({ to: "/dashboard" });
     }
 
@@ -72,7 +81,7 @@ export const Route = createFileRoute("/_authenticated")({
       .maybeSingle();
     const primaryRole = ((pr as { primary_role?: string | null } | null)?.primary_role ?? null) as
       "mentee" | "mentor" | "team_member" | null;
-    return { user, isAdmin, onboarded: hasAllRequired, primaryRole };
+    return { user, isAdmin, onboarded: hasCompletedEntry, primaryRole };
   },
   component: AuthedLayout,
 });
