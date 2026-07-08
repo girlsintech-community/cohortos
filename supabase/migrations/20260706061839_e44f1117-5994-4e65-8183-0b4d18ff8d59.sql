@@ -23,7 +23,7 @@ $$;
 
 -- Grant admin now if that user already exists
 INSERT INTO public.user_roles (user_id, role)
-SELECT id, 'admin'::app_role FROM auth.users
+SELECT id, 'admin'::public.app_role FROM auth.users
 WHERE email = 'girlsleadingtech@gmail.com'
 ON CONFLICT (user_id, role) DO NOTHING;
 

@@ -30,13 +30,13 @@ $$;
 
 -- Grant admin now to girlsleadintech@gmail.com if that user already exists
 INSERT INTO public.user_roles (user_id, role)
-SELECT id, 'admin'::app_role FROM auth.users
+SELECT id, 'admin'::public.app_role FROM auth.users
 WHERE email = 'girlsleadintech@gmail.com'
 ON CONFLICT (user_id, role) DO NOTHING;
 
 -- Update profiles.primary_role for existing user if exists
 UPDATE public.profiles p
-SET primary_role = 'admin'::app_role
+SET primary_role = 'admin'::public.app_role
 FROM auth.users u
 WHERE u.id = p.id AND u.email = 'girlsleadintech@gmail.com';
 

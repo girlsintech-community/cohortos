@@ -1,7 +1,7 @@
 
 -- Grant admin now if the user already exists
 INSERT INTO public.user_roles (user_id, role)
-SELECT id, 'admin'::app_role FROM auth.users WHERE email = 'cohortos@gmail.com'
+SELECT id, 'admin'::public.app_role FROM auth.users WHERE email = 'cohortos@gmail.com'
 ON CONFLICT (user_id, role) DO NOTHING;
 
 -- Trigger: auto-grant admin to this specific email on future signup
