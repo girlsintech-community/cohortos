@@ -77,6 +77,7 @@ function AdminPage() {
           <TabsTrigger value="challenges">Challenges</TabsTrigger>
           <TabsTrigger value="allowlist">Allowlist</TabsTrigger>
           <TabsTrigger value="resources">Resources</TabsTrigger>
+          <TabsTrigger value="feedback">Feedback & Bugs</TabsTrigger>
         </TabsList>
         <TabsContent value="overview" className="mt-4">
           <OverviewPanel />
@@ -98,6 +99,9 @@ function AdminPage() {
         </TabsContent>
         <TabsContent value="resources" className="mt-4">
           <ResourcesPanel />
+        </TabsContent>
+        <TabsContent value="feedback" className="mt-4">
+          <FeedbackPanel />
         </TabsContent>
       </Tabs>
     </div>
@@ -1624,6 +1628,91 @@ function ResourcesPanel() {
               </Button>
             </div>
           ))}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ─── Feedback & Bugs Panel ───
+function FeedbackPanel() {
+  const qc = useQueryClient();
+
+  const { data: reports, isLoading } = useQuery({
+    queryKey: ["admin", "feedback-reports"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("feedback_reports")
+        .select("id, type, message, created_at, profiles(display_name, username)")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("feedback_reports").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Report deleted");
+      qc.invalidateQueries({ queryKey: ["admin", "feedback-reports"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  if (isLoading) {
+    return (
+      <div className="grid place-items-center py-10">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>User Feedback & Bug Reports ({(reports ?? []).length})</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {(reports ?? []).length === 0 && (
+            <p className="text-sm text-muted-foreground text-center py-8">
+              No reports received yet! Everything is running smoothly. ✨
+            </p>
+          )}
+          {(reports ?? []).map((r) => {
+            const isBug = r.type === "bug_report";
+            return (
+              <div key={r.id} className="flex gap-4 items-start rounded-lg border p-4 bg-card hover:bg-muted/10 transition">
+                <div className="flex-1 min-w-0 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Badge variant={isBug ? "destructive" : "default"} className="capitalize">
+                      {isBug ? "Bug Report" : "Suggestion"}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(r.created_at).toLocaleString()}
+                    </span>
+                  </div>
+                  <p className="text-sm text-foreground whitespace-pre-wrap break-all">{r.message}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Submitted by: <strong>{r.profiles?.display_name ?? "Unknown"}</strong> (@{r.profiles?.username ?? "unknown"})
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    if (confirm("Mark as resolved and delete this report?")) remove.mutate(r.id);
+                  }}
+                  className="hover:bg-destructive/10 text-muted-foreground hover:text-destructive shrink-0"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            );
+          })}
         </CardContent>
       </Card>
     </div>

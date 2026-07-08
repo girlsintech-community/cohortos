@@ -1,9 +1,29 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { toast } from "sonner";
 import {
   Loader2,
   ExternalLink,
@@ -13,6 +33,7 @@ import {
   Wrench,
   GraduationCap,
   Lightbulb,
+  Plus,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/resources")({
@@ -48,7 +69,16 @@ type Resource = {
 };
 
 function ResourcesPage() {
+  const { user } = Route.useRouteContext();
+  const qc = useQueryClient();
   const [activeCategory, setActiveCategory] = useState("All");
+  const [suggestOpen, setSuggestOpen] = useState(false);
+
+  // Form states for resource suggestion
+  const [title, setTitle] = useState("");
+  const [url, setUrl] = useState("");
+  const [category, setCategory] = useState("General");
+  const [description, setDescription] = useState("");
 
   const { data: resources, isLoading } = useQuery({
     queryKey: ["resources"],
@@ -63,6 +93,36 @@ function ResourcesPage() {
     },
   });
 
+  const suggest = useMutation({
+    mutationFn: async () => {
+      if (!title.trim() || !url.trim()) throw new Error("Title and URL are required");
+      let finalUrl = url.trim();
+      if (!/^https?:\/\//i.test(finalUrl)) {
+        finalUrl = `https://${finalUrl}`;
+      }
+      const { error } = await supabase.from("resources").insert({
+        title: title.trim(),
+        url: finalUrl,
+        category,
+        description: description.trim() || null,
+        created_by: user.id,
+        is_active: false, // suggestion requires admin approval
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Resource suggested!", {
+        description: "Your suggestion has been submitted and is awaiting admin approval.",
+      });
+      setTitle("");
+      setUrl("");
+      setCategory("General");
+      setDescription("");
+      setSuggestOpen(false);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const categories = ["All", ...Array.from(new Set((resources ?? []).map((r) => r.category)))];
   const filtered =
     activeCategory === "All"
@@ -71,9 +131,84 @@ function ResourcesPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Resources</h1>
-        <p className="text-muted-foreground">Curated resources to level up your DSA journey.</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">Resources</h1>
+          <p className="text-muted-foreground">Curated resources to level up your DSA journey.</p>
+        </div>
+        
+        {/* Suggest Resource Dialog */}
+        <Dialog open={suggestOpen} onOpenChange={setSuggestOpen}>
+          <DialogTrigger asChild>
+            <Button className="sm:self-center text-white" style={{ background: "var(--gradient-primary)" }}>
+              <Plus className="mr-2 h-4 w-4" /> Suggest Resource
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Suggest a Resource</DialogTitle>
+              <DialogDescription>
+                Share a helpful article, video, tool, or cheat sheet with the community. Suggestions will show up after admin review.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="s-title">Title *</Label>
+                <Input
+                  id="s-title"
+                  placeholder="e.g. Striver's SDE Sheet"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="s-url">URL *</Label>
+                <Input
+                  id="s-url"
+                  placeholder="https://..."
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="s-category">Category *</Label>
+                <Select value={category} onValueChange={setCategory}>
+                  <SelectTrigger id="s-category">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="General">General</SelectItem>
+                    <SelectItem value="DSA">DSA</SelectItem>
+                    <SelectItem value="Interview Prep">Interview Prep</SelectItem>
+                    <SelectItem value="Tools">Tools</SelectItem>
+                    <SelectItem value="Career">Career</SelectItem>
+                    <SelectItem value="Web Dev">Web Dev</SelectItem>
+                    <SelectItem value="System Design">System Design</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="s-desc">Description</Label>
+                <Textarea
+                  id="s-desc"
+                  placeholder="Short description of the resource..."
+                  rows={3}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  maxLength={500}
+                />
+              </div>
+              <Button
+                className="w-full text-white"
+                onClick={() => suggest.mutate()}
+                disabled={suggest.isPending}
+                style={{ background: "var(--gradient-primary)" }}
+              >
+                {suggest.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Submit Suggestion
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Category tabs */}

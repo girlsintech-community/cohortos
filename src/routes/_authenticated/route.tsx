@@ -5,6 +5,7 @@ import {
   Link,
   useRouter,
   useRouterState,
+  useNavigate,
 } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -22,6 +23,9 @@ import {
   MoreHorizontal,
   X,
   UsersRound,
+  Settings,
+  ShieldAlert,
+  HeartHandshake,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
@@ -30,6 +34,22 @@ import { useState, useRef, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -245,6 +265,139 @@ function NotificationBell({ userId }: { userId: string }) {
   );
 }
 
+function SettingsMenu({ userId, signOut }: { userId: string; signOut: () => void }) {
+  const navigate = useNavigate();
+  const [reportOpen, setReportOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function submitReport(type: "bug_report" | "feedback") {
+    if (!message.trim()) return toast.error("Please enter a message");
+    setBusy(true);
+    try {
+      const { error } = await supabase.from("feedback_reports").insert({
+        user_id: userId,
+        type,
+        message: message.trim(),
+      });
+      if (error) throw error;
+      toast.success(
+        type === "bug_report"
+          ? "Bug report submitted successfully! The admin has been notified."
+          : "Thank you for your feedback! The admin has been notified."
+      );
+      setMessage("");
+      setReportOpen(false);
+      setFeedbackOpen(false);
+    } catch (err: any) {
+      toast.error("Failed to submit", { description: err.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-9 w-9 p-0 text-muted-foreground hover:text-foreground cursor-pointer"
+            aria-label="Settings"
+          >
+            <Settings className="h-4.5 w-4.5" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuItem onClick={() => navigate({ to: "/profile" })} className="cursor-pointer">
+            <User className="h-4 w-4 mr-2" />
+            Your Profile
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setReportOpen(true)} className="cursor-pointer">
+            <ShieldAlert className="h-4 w-4 mr-2" />
+            Report a Bug
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setFeedbackOpen(true)} className="cursor-pointer">
+            <HeartHandshake className="h-4 w-4 mr-2" />
+            Give Feedback
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={signOut} className="cursor-pointer text-destructive focus:text-destructive">
+            <LogOut className="h-4 w-4 mr-2" />
+            Sign Out
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* Bug report dialog */}
+      <Dialog open={reportOpen} onOpenChange={(open) => { setReportOpen(open); if(!open) setMessage(""); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Report a Bug</DialogTitle>
+            <DialogDescription>
+              Encountered an issue? Tell us about it and we'll fix it as soon as possible.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>Describe the issue *</Label>
+              <Textarea
+                rows={4}
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="What went wrong? Please include as many details as possible."
+                maxLength={1000}
+              />
+            </div>
+            <Button
+              className="w-full text-white"
+              disabled={busy}
+              onClick={() => submitReport("bug_report")}
+              style={{ background: "var(--gradient-primary)" }}
+            >
+              {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Send to Admin
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Feedback dialog */}
+      <Dialog open={feedbackOpen} onOpenChange={(open) => { setFeedbackOpen(open); if(!open) setMessage(""); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Platform Feedback</DialogTitle>
+            <DialogDescription>
+              We'd love to hear your suggestions on how we can improve CohortOS!
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>Your suggestions *</Label>
+              <Textarea
+                rows={4}
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Share your ideas or feature suggestions here..."
+                maxLength={1000}
+              />
+            </div>
+            <Button
+              className="w-full text-white"
+              disabled={busy}
+              onClick={() => submitReport("feedback")}
+              style={{ background: "var(--gradient-primary)" }}
+            >
+              {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Send to Admin
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 // ─── Main Layout ───
 function AuthedLayout() {
   const router = useRouter();
@@ -273,7 +426,6 @@ function AuthedLayout() {
         ...(primaryRole === "mentee"
           ? [{ to: "/speed-networking", label: "Networking", icon: Users }]
           : []),
-        { to: "/profile", label: "Profile", icon: User },
         ...(isAdmin ? [{ to: "/admin", label: "Admin", icon: Shield }] : []),
       ]
     : [];
@@ -312,15 +464,7 @@ function AuthedLayout() {
                 );
               })}
               <NotificationBell userId={user.id} />
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={signOut}
-                className="ml-1 text-muted-foreground"
-              >
-                <LogOut className="h-4 w-4" />
-                <span className="hidden sm:inline ml-2">Sign out</span>
-              </Button>
+              <SettingsMenu userId={user.id} signOut={signOut} />
             </nav>
           </div>
         </header>
@@ -346,14 +490,7 @@ function AuthedLayout() {
           </Link>
           <div className="flex items-center gap-1">
             <NotificationBell userId={user.id} />
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={signOut}
-              className="text-muted-foreground h-9 w-9 p-0"
-            >
-              <LogOut className="h-4 w-4" />
-            </Button>
+            <SettingsMenu userId={user.id} signOut={signOut} />
           </div>
         </div>
       </header>
