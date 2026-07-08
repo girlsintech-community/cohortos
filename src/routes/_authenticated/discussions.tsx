@@ -162,6 +162,7 @@ function DiscussionCard({
   open: boolean;
   onToggle: () => void;
 }) {
+  const { user } = Route.useRouteContext();
   const initials = (d.profiles?.display_name || "?").slice(0, 2).toUpperCase();
   const replyCount = d.discussion_replies[0]?.count ?? 0;
   return (
@@ -208,7 +209,7 @@ function DiscussionCard({
               targetType="discussion"
               targetId={d.id}
               receiverId={d.author_id}
-              currentUserId={Route.useRouteContext().user.id}
+              currentUserId={user.id}
             />
             <button
               onClick={onToggle}
