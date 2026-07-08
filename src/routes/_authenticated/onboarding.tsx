@@ -277,7 +277,7 @@ function Onboarding() {
               onValueChange={(v) => setPrimaryRole(v as typeof primaryRole)}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select your role" />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="mentee">Mentee</SelectItem>
