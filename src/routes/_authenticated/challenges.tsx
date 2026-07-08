@@ -149,7 +149,7 @@ function ChallengeCard({ c, submission }: { c: any; submission: any }) {
         screenshot_url: screenshotUrl || null,
         status: "submitted",
         feedback: null,
-      };
+      } as any;
 
       if (submission) {
         const { error } = await supabase

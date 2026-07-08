@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Sparkles, Upload, X } from "lucide-react";
+import { CheckCircle2, Loader2, ScrollText, ShieldCheck, Sparkles, Upload, X } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -58,6 +58,33 @@ function Onboarding() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [primaryRole, setPrimaryRole] = useState<"mentee" | "mentor" | "team_member" | "">("");
+  const [guideConfirmed, setGuideConfirmed] = useState(false);
+
+  const { data: guides } = useQuery({
+    queryKey: ["platformGuides"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("platform_guides")
+        .select("slug, title, body, sort_order")
+        .order("sort_order", { ascending: true });
+      if (error) throw error;
+      return data as Array<{ slug: string; title: string; body: string; sort_order: number }>;
+    },
+  });
+
+  const { data: existingConfirmation } = useQuery({
+    queryKey: ["guideConfirmation", user.id],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("user_guide_confirmations")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("guide_version", "2026-07-08")
+        .maybeSingle();
+      if (error) throw error;
+      return data as { id: string } | null;
+    },
+  });
 
   useEffect(() => {
     if (!profile) return;
@@ -77,6 +104,10 @@ function Onboarding() {
     const pr = (profile as { primary_role?: string | null }).primary_role;
     if (pr === "mentee" || pr === "mentor" || pr === "team_member") setPrimaryRole(pr);
   }, [profile]);
+
+  useEffect(() => {
+    if (existingConfirmation) setGuideConfirmed(true);
+  }, [existingConfirmation]);
 
   function addSkill() {
     const s = skillInput.trim();
@@ -123,6 +154,7 @@ function Onboarding() {
       if (!stateVal.trim()) throw new Error("State is required");
       if (!bio.trim()) throw new Error("Short bio is required");
       if (skills.length === 0) throw new Error("Please add at least one skill");
+      if (!guideConfirmed) throw new Error("Please read and confirm the guide, rules, and code of conduct");
       const { error } = await supabase
         .from("profiles")
         .update({
@@ -147,6 +179,12 @@ function Onboarding() {
         if ((error as { code?: string }).code === "23505")
           throw new Error("That username is already taken");
         throw error;
+      }
+      if (!existingConfirmation) {
+        const { error: confirmError } = await (supabase as any)
+          .from("user_guide_confirmations")
+          .insert({ user_id: user.id, guide_version: "2026-07-08" });
+        if (confirmError) throw confirmError;
       }
     },
     onSuccess: async () => {
@@ -239,7 +277,7 @@ function Onboarding() {
               onValueChange={(v) => setPrimaryRole(v as typeof primaryRole)}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select your role" />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="mentee">Mentee</SelectItem>
@@ -254,7 +292,6 @@ function Onboarding() {
               value={bio}
               onChange={(e) => setBio(e.target.value)}
               maxLength={280}
-              placeholder="Tell us a bit about yourself…"
             />
           </Field>
         </CardContent>
@@ -309,14 +346,12 @@ function Onboarding() {
             <Input
               value={linkedin}
               onChange={(e) => setLinkedin(e.target.value)}
-              placeholder="https://linkedin.com/in/…"
             />
           </Field>
           <Field label="GitHub URL *">
             <Input
               value={github}
               onChange={(e) => setGithub(e.target.value)}
-              placeholder="https://github.com/…"
             />
           </Field>
           <Field label="Skills * (at least 1)" className="sm:col-span-2">
@@ -361,6 +396,41 @@ function Onboarding() {
               </div>
             )}
           </Field>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ScrollText className="h-5 w-5 text-primary" /> Guide, rules, and code of conduct
+          </CardTitle>
+          <CardDescription>Read these once before entering the cohort dashboard.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-3">
+            {(guides ?? []).map((g) => (
+              <div key={g.slug} className="rounded-lg border bg-muted/30 p-4">
+                <div className="flex items-center gap-2 font-semibold text-sm">
+                  {g.slug === "code_of_conduct" ? (
+                    <ShieldCheck className="h-4 w-4 text-primary" />
+                  ) : (
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                  )}
+                  {g.title}
+                </div>
+                <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{g.body}</p>
+              </div>
+            ))}
+          </div>
+          <label className="flex items-start gap-3 rounded-lg border p-4 text-sm cursor-pointer hover:bg-muted/40">
+            <input
+              type="checkbox"
+              checked={guideConfirmed}
+              onChange={(e) => setGuideConfirmed(e.target.checked)}
+              className="mt-1"
+            />
+            <span>I have read and agree to follow the guide, rules, and code of conduct.</span>
+          </label>
         </CardContent>
       </Card>
 
