@@ -26,6 +26,8 @@ import {
   Settings,
   ShieldAlert,
   HeartHandshake,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
@@ -272,6 +274,25 @@ function SettingsMenu({ userId, signOut }: { userId: string; signOut: () => void
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    if (typeof window !== "undefined") {
+      return document.documentElement.classList.contains("dark") ? "dark" : "light";
+    }
+    return "light";
+  });
+
+  function toggleTheme() {
+    const nextTheme = theme === "light" ? "dark" : "light";
+    setTheme(nextTheme);
+    if (nextTheme === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+    localStorage.setItem("theme", nextTheme);
+    toast.success(`Switched to ${nextTheme} mode`);
+  }
+
   async function submitReport(type: "bug_report" | "feedback") {
     if (!message.trim()) return toast.error("Please enter a message");
     setBusy(true);
@@ -310,10 +331,23 @@ function SettingsMenu({ userId, signOut }: { userId: string; signOut: () => void
             <Settings className="h-4.5 w-4.5" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuContent align="end" className="w-52">
           <DropdownMenuItem onClick={() => navigate({ to: "/profile" })} className="cursor-pointer">
             <User className="h-4 w-4 mr-2" />
             Your Profile
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={toggleTheme} className="cursor-pointer">
+            {theme === "light" ? (
+              <>
+                <Moon className="h-4 w-4 mr-2" />
+                Dark Mode
+              </>
+            ) : (
+              <>
+                <Sun className="h-4 w-4 mr-2" />
+                Light Mode
+              </>
+            )}
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setReportOpen(true)} className="cursor-pointer">
             <ShieldAlert className="h-4 w-4 mr-2" />
