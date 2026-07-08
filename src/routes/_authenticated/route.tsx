@@ -145,6 +145,20 @@ function NotificationBell({ userId }: { userId: string }) {
     refetchInterval: 30000,
   });
 
+  useEffect(() => {
+    const channel = supabase
+      .channel(`notifications-${userId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` },
+        () => qc.invalidateQueries({ queryKey: ["notifications", userId] }),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [qc, userId]);
+
   const unread = (notifications ?? []).filter((n) => !n.is_read).length;
 
   const markRead = useMutation({

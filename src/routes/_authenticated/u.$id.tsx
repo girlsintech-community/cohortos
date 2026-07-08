@@ -1,9 +1,18 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Loader2,
   Linkedin,
@@ -14,7 +23,10 @@ import {
   Flame,
   Zap,
   ArrowLeft,
+  Award,
 } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/u/$id")({
   component: MemberProfilePage,
@@ -22,6 +34,10 @@ export const Route = createFileRoute("/_authenticated/u/$id")({
 
 function MemberProfilePage() {
   const { id } = Route.useParams();
+  const { user, primaryRole, isAdmin } = Route.useRouteContext();
+  const qc = useQueryClient();
+  const [cardType, setCardType] = useState("outstanding_improvement");
+  const [message, setMessage] = useState("");
   const { data: profile, isLoading } = useQuery({
     queryKey: ["publicProfile", id],
     queryFn: async () => {
@@ -62,6 +78,55 @@ function MemberProfilePage() {
     },
   });
 
+  const { data: badges } = useQuery({
+    queryKey: ["memberBadges", id],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("user_badges")
+        .select("reason, awarded_at, badges(name, icon, description)")
+        .eq("user_id", id)
+        .order("awarded_at", { ascending: false });
+      if (error) throw error;
+      return data as Array<{
+        reason: string | null;
+        awarded_at: string;
+        badges: { name: string; icon: string; description: string } | null;
+      }>;
+    },
+  });
+
+  const { data: streaks } = useQuery({
+    queryKey: ["memberStreaks", id],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("user_streaks")
+        .select("streak_type, current_count")
+        .eq("user_id", id);
+      if (error) throw error;
+      return data as Array<{ streak_type: string; current_count: number }>;
+    },
+  });
+
+  const appreciate = useMutation({
+    mutationFn: async () => {
+      const { error } = await (supabase as any).from("mentor_appreciations").insert({
+        mentor_id: user.id,
+        student_id: id,
+        card_type: cardType,
+        message: message.trim() || null,
+        xp_bonus: 15,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Appreciation sent");
+      setMessage("");
+      qc.invalidateQueries({ queryKey: ["memberBadges", id] });
+      qc.invalidateQueries({ queryKey: ["publicProfile", id] });
+    },
+    onError: (e: Error) => toast.error("Couldn't send appreciation", { description: e.message }),
+  });
+
   if (isLoading)
     return (
       <div className="grid place-items-center py-20">
@@ -71,6 +136,7 @@ function MemberProfilePage() {
   if (!profile) return <p className="text-center text-muted-foreground py-10">Member not found.</p>;
 
   const initials = (profile.display_name || "?").slice(0, 2).toUpperCase();
+  const canAppreciate = id !== user.id && (isAdmin || primaryRole === "mentor" || primaryRole === "team_member");
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -159,8 +225,75 @@ function MemberProfilePage() {
               <Mini icon={Zap} label="Likes received" value={String(stats.likesReceived)} />
             </div>
           )}
+          {streaks && streaks.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-3">
+              {streaks.map((s) => (
+                <Mini
+                  key={s.streak_type}
+                  icon={Flame}
+                  label={s.streak_type.replace("_", " ")}
+                  value={`${s.current_count}d`}
+                />
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
+
+      <Card>
+        <CardContent className="pt-5">
+          <div className="flex items-center gap-2 mb-3">
+            <Award className="h-5 w-5 text-primary" />
+            <h2 className="font-semibold">Achievement badges</h2>
+          </div>
+          {badges?.length ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {badges.map((b, index) => (
+                <div key={`${b.badges?.name}-${index}`} className="rounded-lg border bg-muted/30 p-3">
+                  <p className="font-semibold text-sm">
+                    {b.badges?.icon} {b.badges?.name}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">{b.reason || b.badges?.description}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No badges yet.</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {canAppreciate && (
+        <Card>
+          <CardContent className="pt-5 space-y-3">
+            <div>
+              <h2 className="font-semibold">Mentor appreciation</h2>
+              <p className="text-sm text-muted-foreground">Send one of your 5 weekly recognition cards.</p>
+            </div>
+            <Select value={cardType} onValueChange={setCardType}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="outstanding_improvement">Outstanding Improvement</SelectItem>
+                <SelectItem value="great_team_player">Great Team Player</SelectItem>
+                <SelectItem value="excellent_explanation">Excellent Explanation</SelectItem>
+                <SelectItem value="consistency">Consistency</SelectItem>
+                <SelectItem value="leadership">Leadership</SelectItem>
+              </SelectContent>
+            </Select>
+            <Textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              maxLength={240}
+              rows={3}
+            />
+            <Button onClick={() => appreciate.mutate()} disabled={appreciate.isPending}>
+              Send appreciation · +15 XP
+            </Button>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
