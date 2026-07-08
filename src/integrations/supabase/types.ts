@@ -921,6 +921,16 @@ export type Database = {
         Returns: undefined
       }
       find_profile_by_email: { Args: { _email: string }; Returns: string }
+      get_leaderboard_scores: {
+        Args: never
+        Returns: {
+          community_score: number
+          dsa_score: number
+          mentor_score: number
+          project_score: number
+          user_id: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
