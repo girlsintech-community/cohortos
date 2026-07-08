@@ -451,7 +451,7 @@ function ReactionBar({
   receiverId,
   currentUserId,
 }: {
-  targetType: "post_comment" | "discussion_reply" | "discussion";
+  targetType: "post_comment" | "discussion_reply" | "discussion" | "feed_post";
   targetId: string;
   receiverId: string;
   currentUserId: string;

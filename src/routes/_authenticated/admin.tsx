@@ -506,6 +506,7 @@ function ChallengesPanel() {
   const [link, setLink] = useState("");
   const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard">("easy");
   const [xp, setXp] = useState("50");
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const { data: challenges } = useQuery({
     queryKey: ["admin", "challenges"],
@@ -518,6 +519,24 @@ function ChallengesPanel() {
       return data;
     },
   });
+
+  function startEdit(c: any) {
+    setEditingId(c.id);
+    setTitle(c.title);
+    setDescription(c.description ?? "");
+    setLink(c.link ?? "");
+    setDifficulty(c.difficulty ?? "easy");
+    setXp(String(c.xp_reward ?? 50));
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setTitle("");
+    setDescription("");
+    setLink("");
+    setDifficulty("easy");
+    setXp("50");
+  }
 
   const create = useMutation({
     mutationFn: async () => {
@@ -532,11 +551,32 @@ function ChallengesPanel() {
       if (error) throw error;
     },
     onSuccess: () => {
-      setTitle("");
-      setDescription("");
-      setLink("");
-      setXp("50");
+      cancelEdit();
       toast.success("Challenge created");
+      qc.invalidateQueries();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const update = useMutation({
+    mutationFn: async () => {
+      if (!editingId) throw new Error("No challenge selected");
+      if (!title.trim() || !description.trim()) throw new Error("Title and description required");
+      const { error } = await supabase
+        .from("challenges")
+        .update({
+          title: title.trim(),
+          description: description.trim(),
+          link: link.trim() || null,
+          difficulty,
+          xp_reward: Number(xp) || 50,
+        })
+        .eq("id", editingId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      cancelEdit();
+      toast.success("Challenge updated");
       qc.invalidateQueries();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -565,7 +605,7 @@ function ChallengesPanel() {
     <div className="grid gap-6 md:grid-cols-2">
       <Card>
         <CardHeader>
-          <CardTitle>New challenge</CardTitle>
+          <CardTitle>{editingId ? "Edit challenge" : "New challenge"}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="space-y-1.5">
@@ -607,14 +647,33 @@ function ChallengesPanel() {
               <Input type="number" value={xp} onChange={(e) => setXp(e.target.value)} />
             </div>
           </div>
-          <Button
-            onClick={() => create.mutate()}
-            disabled={create.isPending}
-            className="w-full"
-            style={{ background: "var(--gradient-primary)" }}
-          >
-            {create.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Create
-          </Button>
+          <div className="flex gap-2">
+            {editingId ? (
+              <>
+                <Button
+                  onClick={() => update.mutate()}
+                  disabled={update.isPending}
+                  className="flex-1"
+                  style={{ background: "var(--gradient-primary)" }}
+                >
+                  {update.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save
+                  changes
+                </Button>
+                <Button variant="outline" onClick={cancelEdit} className="flex-1">
+                  Cancel
+                </Button>
+              </>
+            ) : (
+              <Button
+                onClick={() => create.mutate()}
+                disabled={create.isPending}
+                className="w-full"
+                style={{ background: "var(--gradient-primary)" }}
+              >
+                {create.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Create
+              </Button>
+            )}
+          </div>
         </CardContent>
       </Card>
 
@@ -635,11 +694,20 @@ function ChallengesPanel() {
               <Button
                 size="sm"
                 variant="outline"
+                onClick={() => startEdit(c)}
+              >
+                Edit
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
                 onClick={() => toggle.mutate({ id: c.id, active: !c.is_active })}
               >
                 {c.is_active ? "Hide" : "Show"}
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => remove.mutate(c.id)}>
+              <Button size="sm" variant="ghost" onClick={() => {
+                if (confirm("Delete this challenge?")) remove.mutate(c.id);
+              }}>
                 <Trash2 className="h-4 w-4 text-destructive" />
               </Button>
             </div>
@@ -697,7 +765,10 @@ function PodsPanel() {
     const { data, error } = await supabase.rpc("find_profile_by_email" as any, {
       _email: email.trim().toLowerCase(),
     });
-    if (error) return null;
+    if (error) {
+      toast.error("Lookup failed", { description: error.message });
+      return null;
+    }
     return (data as string | null) ?? null;
   }
 
@@ -1092,6 +1163,11 @@ function ResourcesPanel() {
   const [description, setDescription] = useState("");
   const [url, setUrl] = useState("");
   const [category, setCategory] = useState("General");
+  const [customCategory, setCustomCategory] = useState("");
+  const [useCustomCategory, setUseCustomCategory] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const PRESET_CATEGORIES = ["General", "DSA", "DSA Sheets", "Interview Prep", "Tools", "Career", "Web Dev", "System Design"];
 
   const { data: resources } = useQuery({
     queryKey: ["admin", "resources"],
@@ -1113,24 +1189,84 @@ function ResourcesPanel() {
     },
   });
 
+  const existingCategories = [...new Set([...PRESET_CATEGORIES, ...(resources ?? []).map((r) => r.category)])];
+
+  function getEffectiveCategory() {
+    return useCustomCategory ? customCategory.trim() : category;
+  }
+
+  function startEdit(r: any) {
+    setEditingId(r.id);
+    setTitle(r.title);
+    setDescription(r.description ?? "");
+    setUrl(r.url);
+    const isPreset = PRESET_CATEGORIES.includes(r.category);
+    if (isPreset) {
+      setCategory(r.category);
+      setUseCustomCategory(false);
+      setCustomCategory("");
+    } else {
+      setUseCustomCategory(true);
+      setCustomCategory(r.category);
+    }
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setTitle("");
+    setDescription("");
+    setUrl("");
+    setCategory("General");
+    setCustomCategory("");
+    setUseCustomCategory(false);
+  }
+
   const create = useMutation({
     mutationFn: async () => {
       if (!title.trim() || !url.trim()) throw new Error("Title and URL are required");
+      const effectiveCat = getEffectiveCategory();
+      if (!effectiveCat) throw new Error("Category is required");
       let finalUrl = url.trim();
       if (!/^https?:\/\//i.test(finalUrl)) finalUrl = `https://${finalUrl}`;
       const { error } = await supabase.from("resources").insert({
         title: title.trim(),
         description: description.trim() || null,
         url: finalUrl,
-        category,
+        category: effectiveCat,
       });
       if (error) throw error;
     },
     onSuccess: () => {
-      setTitle("");
-      setDescription("");
-      setUrl("");
+      cancelEdit();
       toast.success("Resource added");
+      qc.invalidateQueries({ queryKey: ["admin", "resources"] });
+      qc.invalidateQueries({ queryKey: ["resources"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const updateResource = useMutation({
+    mutationFn: async () => {
+      if (!editingId) throw new Error("No resource selected");
+      if (!title.trim() || !url.trim()) throw new Error("Title and URL are required");
+      const effectiveCat = getEffectiveCategory();
+      if (!effectiveCat) throw new Error("Category is required");
+      let finalUrl = url.trim();
+      if (!/^https?:\/\//i.test(finalUrl)) finalUrl = `https://${finalUrl}`;
+      const { error } = await supabase
+        .from("resources")
+        .update({
+          title: title.trim(),
+          description: description.trim() || null,
+          url: finalUrl,
+          category: effectiveCat,
+        })
+        .eq("id", editingId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      cancelEdit();
+      toast.success("Resource updated");
       qc.invalidateQueries({ queryKey: ["admin", "resources"] });
       qc.invalidateQueries({ queryKey: ["resources"] });
     },
@@ -1165,7 +1301,7 @@ function ResourcesPanel() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <BookOpen className="h-5 w-5 text-primary" /> New resource
+            <BookOpen className="h-5 w-5 text-primary" /> {editingId ? "Edit resource" : "New resource"}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -1186,28 +1322,64 @@ function ResourcesPanel() {
             <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" />
           </div>
           <div className="space-y-1.5">
-            <Label>Category</Label>
-            <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="General">General</SelectItem>
-                <SelectItem value="DSA">DSA</SelectItem>
-                <SelectItem value="Interview Prep">Interview Prep</SelectItem>
-                <SelectItem value="Tools">Tools</SelectItem>
-                <SelectItem value="Career">Career</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex items-center justify-between">
+              <Label>Category</Label>
+              <button
+                type="button"
+                onClick={() => setUseCustomCategory((v) => !v)}
+                className="text-xs text-primary hover:underline"
+              >
+                {useCustomCategory ? "Use preset" : "+ Custom category"}
+              </button>
+            </div>
+            {useCustomCategory ? (
+              <Input
+                value={customCategory}
+                onChange={(e) => setCustomCategory(e.target.value)}
+                placeholder="Type a custom category name…"
+                maxLength={60}
+              />
+            ) : (
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {existingCategories.map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
-          <Button
-            onClick={() => create.mutate()}
-            disabled={create.isPending}
-            className="w-full"
-            style={{ background: "var(--gradient-primary)" }}
-          >
-            {create.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Add resource
-          </Button>
+          <div className="flex gap-2">
+            {editingId ? (
+              <>
+                <Button
+                  onClick={() => updateResource.mutate()}
+                  disabled={updateResource.isPending}
+                  className="flex-1"
+                  style={{ background: "var(--gradient-primary)" }}
+                >
+                  {updateResource.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save changes
+                </Button>
+                <Button variant="outline" onClick={cancelEdit} className="flex-1">
+                  Cancel
+                </Button>
+              </>
+            ) : (
+              <Button
+                onClick={() => create.mutate()}
+                disabled={create.isPending}
+                className="w-full"
+                style={{ background: "var(--gradient-primary)" }}
+              >
+                {create.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Add resource
+              </Button>
+            )}
+          </div>
         </CardContent>
       </Card>
 
@@ -1235,6 +1407,13 @@ function ResourcesPanel() {
                   {r.url}
                 </a>
               </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => startEdit(r)}
+              >
+                Edit
+              </Button>
               <Button
                 size="sm"
                 variant="outline"

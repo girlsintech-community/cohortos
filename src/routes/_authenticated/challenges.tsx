@@ -141,24 +141,31 @@ function ChallengeCard({ c, submission }: { c: any; submission: any }) {
 
   const submit = useMutation({
     mutationFn: async () => {
-      const payload = {
-        challenge_id: c.id,
-        user_id: user.id,
-        solution_url: url.trim() || null,
-        notes: notes.trim() || null,
-        screenshot_url: screenshotUrl || null,
-        status: "submitted",
-        feedback: null,
-      } as any;
+      const trimmedUrl = url.trim();
+      if (trimmedUrl && !/^https?:\/\//i.test(trimmedUrl)) {
+        throw new Error("Solution link must be a valid URL starting with http:// or https://");
+      }
 
       if (submission) {
         const { error } = await supabase
           .from("challenge_submissions")
-          .update(payload)
+          .update({
+            solution_url: trimmedUrl || null,
+            notes: notes.trim() || null,
+            screenshot_url: screenshotUrl || null,
+            status: "submitted",
+          })
           .eq("id", submission.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("challenge_submissions").insert(payload);
+        const { error } = await supabase.from("challenge_submissions").insert({
+          challenge_id: c.id,
+          user_id: user.id,
+          solution_url: trimmedUrl || null,
+          notes: notes.trim() || null,
+          screenshot_url: screenshotUrl || null,
+          status: "submitted",
+        });
         if (error) throw error;
       }
     },
@@ -232,10 +239,12 @@ function ChallengeCard({ c, submission }: { c: any; submission: any }) {
                       <div className="space-y-2">
                         <Label>Solution link (GitHub, LeetCode, etc.)</Label>
                         <Input
+                          type="url"
                           value={url}
                           onChange={(e) => setUrl(e.target.value)}
                           placeholder="https://…"
                         />
+                        <p className="text-xs text-muted-foreground">Must start with http:// or https://</p>
                       </div>
                       <div className="space-y-2">
                         <Label>Screenshot (e.g. LeetCode confirmation)</Label>

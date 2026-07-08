@@ -17,7 +17,10 @@ function ResetPasswordPage() {
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [show, setShow] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [done, setDone] = useState(false);
 
   useEffect(() => {
     // Supabase auto-parses the recovery URL fragment and creates a temp session.
@@ -33,26 +36,42 @@ function ResetPasswordPage() {
   async function handle(e: React.FormEvent) {
     e.preventDefault();
     if (password.length < 8) return toast.error("Password must be at least 8 characters");
+    if (password !== confirmPassword)
+      return toast.error("Passwords do not match", {
+        description: "Please make sure both passwords are the same.",
+      });
     setBusy(true);
     const { error } = await supabase.auth.updateUser({ password });
     setBusy(false);
     if (error) return toast.error("Couldn't update password", { description: error.message });
-    toast.success("Password updated — signing you in");
-    navigate({ to: "/dashboard", replace: true });
+    // Sign out so user must log in with the new password
+    await supabase.auth.signOut();
+    setDone(true);
+    toast.success("Password updated successfully! Please sign in with your new password.");
   }
 
   return (
     <div className="grid min-h-screen place-items-center bg-background p-6">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Set a new password</CardTitle>
+          <CardTitle>{done ? "Password updated!" : "Set a new password"}</CardTitle>
           <CardDescription>
-            Pick something strong — at least 12 characters with a mix of letters, numbers, and
-            symbols.
+            {done
+              ? "Your password has been changed. Sign in with your new password."
+              : "Pick something strong — at least 12 characters with a mix of letters, numbers, and symbols."}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {!ready ? (
+          {done ? (
+            <div className="space-y-4">
+              <div className="rounded-lg border border-green-500/30 bg-green-500/10 px-3 py-3 text-sm text-green-700 dark:text-green-400 text-center">
+                ✅ Your password has been updated. You can now sign in with your new password.
+              </div>
+              <Button className="w-full" onClick={() => navigate({ to: "/auth", replace: true })}>
+                Go to Sign In
+              </Button>
+            </div>
+          ) : !ready ? (
             <div className="grid place-items-center py-6 text-sm text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin text-primary mb-2" />
               Verifying reset link… If nothing happens, request a new link from the{" "}
@@ -83,6 +102,30 @@ function ResetPasswordPage() {
                     {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="cp">Confirm new password</Label>
+                <div className="relative">
+                  <Input
+                    id="cp"
+                    type={showConfirm ? "text" : "password"}
+                    required
+                    minLength={8}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirm((v) => !v)}
+                    className="absolute inset-y-0 right-2 grid place-items-center text-muted-foreground"
+                  >
+                    {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                {confirmPassword && password !== confirmPassword && (
+                  <p className="text-xs text-destructive">Passwords do not match</p>
+                )}
               </div>
               <Button type="submit" className="w-full" disabled={busy}>
                 {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Update password

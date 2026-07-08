@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Send, UsersRound } from "lucide-react";
+import { Loader2, Send, UsersRound, ImagePlus, LinkIcon, ExternalLink, Pencil, Trash2, X, Check } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 
@@ -27,6 +27,8 @@ type PodMessage = {
   author_id: string;
   content: string;
   created_at: string;
+  image_url: string | null;
+  link_url: string | null;
   profiles: { display_name: string; username: string | null; avatar_url: string | null } | null;
 };
 
@@ -114,6 +116,12 @@ function PodView({ podId, pod }: { podId: string; pod: Pod }) {
   const { user } = Route.useRouteContext();
   const qc = useQueryClient();
   const [text, setText] = useState("");
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [linkUrl, setLinkUrl] = useState("");
+  const [showLinkInput, setShowLinkInput] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const { data: members } = useQuery({
@@ -136,7 +144,7 @@ function PodView({ podId, pod }: { podId: string; pod: Pod }) {
       const { data, error } = await supabase
         .from("pod_messages")
         .select(
-          "id, author_id, content, created_at, profiles!pod_messages_author_id_fkey(display_name, username, avatar_url)",
+          "id, author_id, content, created_at, image_url, link_url, profiles!pod_messages_author_id_fkey(display_name, username, avatar_url)",
         )
         .eq("pod_id", podId)
         .order("created_at", { ascending: true })
@@ -155,7 +163,7 @@ function PodView({ podId, pod }: { podId: string; pod: Pod }) {
       .channel(`pod-${podId}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "pod_messages", filter: `pod_id=eq.${podId}` },
+        { event: "*", schema: "public", table: "pod_messages", filter: `pod_id=eq.${podId}` },
         () => {
           qc.invalidateQueries({ queryKey: ["pod-messages", podId] });
         },
@@ -169,18 +177,104 @@ function PodView({ podId, pod }: { podId: string; pod: Pod }) {
   const send = useMutation({
     mutationFn: async () => {
       const t = text.trim();
-      if (!t) throw new Error("Empty message");
+      if (!t && !imageUrl && !linkUrl.trim()) throw new Error("Empty message");
+      let finalLink = linkUrl.trim();
+      if (finalLink && !/^https?:\/\//i.test(finalLink)) {
+        finalLink = `https://${finalLink}`;
+      }
       const { error } = await supabase
         .from("pod_messages")
-        .insert({ pod_id: podId, author_id: user.id, content: t });
+        .insert({
+          pod_id: podId,
+          author_id: user.id,
+          content: t,
+          image_url: imageUrl,
+          link_url: finalLink || null,
+        });
       if (error) throw error;
     },
     onSuccess: () => {
       setText("");
+      setImageUrl(null);
+      setLinkUrl("");
+      setShowLinkInput(false);
       qc.invalidateQueries({ queryKey: ["pod-messages", podId] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const updateMessage = useMutation({
+    mutationFn: async ({ messageId, newContent }: { messageId: string; newContent: string }) => {
+      if (!newContent.trim()) throw new Error("Message cannot be empty");
+      const { error } = await supabase
+        .from("pod_messages")
+        .update({ content: newContent.trim() })
+        .eq("id", messageId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setEditingId(null);
+      setEditText("");
+      toast.success("Message updated");
+      qc.invalidateQueries({ queryKey: ["pod-messages", podId] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const deleteMessage = useMutation({
+    mutationFn: async (messageId: string) => {
+      const { error } = await supabase.from("pod_messages").delete().eq("id", messageId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Message deleted");
+      qc.invalidateQueries({ queryKey: ["pod-messages", podId] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  async function handleImage(file: File) {
+    if (file.size > 5 * 1024 * 1024) return toast.error("Image must be under 5MB");
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop() || "png";
+      const path = `${user.id}/pod-${podId}-${Date.now()}.${ext}`;
+      const up = await supabase.storage.from("pod-images").upload(path, file, { upsert: false });
+      if (up.error) throw up.error;
+      const signed = await supabase.storage
+        .from("pod-images")
+        .createSignedUrl(path, 60 * 60 * 24 * 365);
+      if (signed.error) throw signed.error;
+      setImageUrl(signed.data.signedUrl);
+      toast.success("Photo uploaded");
+    } catch (e) {
+      toast.error("Upload failed", { description: (e as Error).message });
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function renderTextWithLinks(content: string) {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = content.split(urlRegex);
+    return parts.map((part, index) => {
+      if (urlRegex.test(part)) {
+        return (
+          <a
+            key={index}
+            href={part}
+            target="_blank"
+            rel="noreferrer"
+            className="underline font-semibold hover:opacity-85 break-all inline-flex items-center gap-0.5"
+            style={{ color: "var(--primary)" }}
+          >
+            {part} <ExternalLink className="h-3 w-3 inline" />
+          </a>
+        );
+      }
+      return part;
+    });
+  }
 
   return (
     <div className="grid gap-4 md:grid-cols-[1fr_260px]">
@@ -198,6 +292,8 @@ function PodView({ podId, pod }: { podId: string; pod: Pod }) {
             (messages ?? []).map((m) => {
               const mine = m.author_id === user.id;
               const ini = (m.profiles?.display_name || "?").slice(0, 2).toUpperCase();
+              const isEditingThis = editingId === m.id;
+
               return (
                 <div key={m.id} className={`flex gap-2 ${mine ? "flex-row-reverse" : ""}`}>
                   <Link to="/u/$id" params={{ id: m.author_id }}>
@@ -227,41 +323,166 @@ function PodView({ podId, pod }: { podId: string; pod: Pod }) {
                         )}
                       </p>
                     )}
-                    <p className="text-sm whitespace-pre-wrap break-words">{m.content}</p>
-                    <p
-                      className={`text-[9px] mt-0.5 ${mine ? "opacity-70" : "text-muted-foreground"}`}
-                    >
-                      {formatDistanceToNow(new Date(m.created_at), { addSuffix: true })}
-                    </p>
+
+                    {isEditingThis ? (
+                      <div className="space-y-2 mt-1 min-w-[200px]">
+                        <Textarea
+                          rows={2}
+                          value={editText}
+                          onChange={(e) => setEditText(e.target.value)}
+                          className="text-xs bg-background text-foreground"
+                        />
+                        <div className="flex gap-1.5 justify-end">
+                          <Button
+                            size="sm"
+                            onClick={() => updateMessage.mutate({ messageId: m.id, newContent: editText })}
+                            disabled={updateMessage.isPending}
+                            className="h-7 px-2 text-xs"
+                          >
+                            <Check className="h-3.5 w-3.5 mr-1" /> Save
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setEditingId(null)}
+                            className="h-7 px-2 text-xs bg-transparent text-current"
+                          >
+                            <X className="h-3.5 w-3.5 mr-1" /> Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-sm whitespace-pre-wrap break-words">
+                          {mine ? m.content : renderTextWithLinks(m.content)}
+                        </p>
+                        {m.image_url && (
+                          <img
+                            src={m.image_url}
+                            alt="Attachment"
+                            className="mt-2 rounded-lg max-h-48 object-contain border bg-background"
+                          />
+                        )}
+                        {m.link_url && (
+                          <a
+                            href={m.link_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className={`mt-2 inline-flex items-center gap-1 text-xs font-medium break-all underline ${mine ? "text-primary-foreground/90 hover:text-white" : "text-primary"}`}
+                          >
+                            <ExternalLink className="h-3.5 w-3.5 shrink-0" /> {m.link_url}
+                          </a>
+                        )}
+                      </>
+                    )}
+
+                    <div className="flex items-center justify-between gap-4 mt-1">
+                      <p className={`text-[9px] ${mine ? "opacity-75" : "text-muted-foreground"}`}>
+                        {formatDistanceToNow(new Date(m.created_at), { addSuffix: true })}
+                      </p>
+                      {mine && !isEditingThis && (
+                        <div className="flex items-center gap-1.5 opacity-60 hover:opacity-100 transition">
+                          <button
+                            onClick={() => {
+                              setEditingId(m.id);
+                              setEditText(m.content);
+                            }}
+                            className="text-[9px] hover:underline"
+                            title="Edit message"
+                          >
+                            Edit
+                          </button>
+                          <span>·</span>
+                          <button
+                            onClick={() => {
+                              if (confirm("Delete this message?")) deleteMessage.mutate(m.id);
+                            }}
+                            className="text-[9px] hover:underline text-destructive dark:text-red-400"
+                            title="Delete message"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
             })
           )}
         </CardContent>
-        <div className="border-t p-3 flex gap-2">
-          <Textarea
-            rows={1}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="Message your pod…"
-            className="min-h-[40px]"
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                send.mutate();
-              }
-            }}
-          />
-          <Button onClick={() => send.mutate()} disabled={send.isPending}>
-            {send.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="h-4 w-4" />
-            )}
-          </Button>
+
+        <div className="border-t p-3 space-y-2 bg-card">
+          {imageUrl && (
+            <div className="relative inline-block">
+              <img src={imageUrl} alt="Upload preview" className="h-16 w-16 object-cover rounded border" />
+              <button
+                onClick={() => setImageUrl(null)}
+                className="absolute -top-1 -right-1 bg-black/60 text-white rounded-full p-0.5 hover:bg-black"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          )}
+
+          {showLinkInput && (
+            <div className="flex gap-2 items-center">
+              <Input
+                placeholder="Paste link here (e.g. GitHub repo, LeetCode profile…)"
+                value={linkUrl}
+                onChange={(e) => setLinkUrl(e.target.value)}
+                className="h-8 text-xs"
+              />
+              <button onClick={() => setShowLinkInput(false)} className="text-muted-foreground hover:text-foreground">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+
+          <div className="flex gap-2 items-end">
+            <div className="flex-1 space-y-1">
+              <Textarea
+                rows={1}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="Message your pod…"
+                className="min-h-[40px] resize-none"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    send.mutate();
+                  }
+                }}
+              />
+              <div className="flex items-center gap-3 px-1">
+                <label className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary cursor-pointer transition">
+                  {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />}
+                  <span>Photo</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => e.target.files?.[0] && handleImage(e.target.files[0])}
+                    disabled={uploading}
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowLinkInput((v) => !v)}
+                  className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition"
+                >
+                  <LinkIcon className="h-3.5 w-3.5" />
+                  <span>Link</span>
+                </button>
+              </div>
+            </div>
+            <Button onClick={() => send.mutate()} disabled={send.isPending || uploading} className="h-10">
+              {send.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            </Button>
+          </div>
         </div>
       </Card>
+
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm">Pod members ({(members ?? []).length})</CardTitle>

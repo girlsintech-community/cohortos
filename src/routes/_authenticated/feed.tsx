@@ -201,7 +201,7 @@ function ReactionBar({
   receiverId,
   currentUserId,
 }: {
-  targetType: "post_comment" | "discussion_reply" | "discussion";
+  targetType: "post_comment" | "discussion_reply" | "discussion" | "feed_post";
   targetId: string;
   receiverId: string;
   currentUserId: string;
@@ -683,6 +683,12 @@ function FeedPage() {
                           </>
                         )}
                       </div>
+                      <ReactionBar
+                        targetType="feed_post"
+                        targetId={p.id}
+                        receiverId={p.author_id}
+                        currentUserId={user.id}
+                      />
                       {openComments[p.id] && (
                         <CommentsThread
                           postId={p.id}

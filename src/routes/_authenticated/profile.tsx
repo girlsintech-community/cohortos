@@ -175,7 +175,11 @@ function ProfilePage() {
     mutationFn: async () => {
       if (!displayName.trim()) throw new Error("Display name is required");
       if (!linkedin.trim()) throw new Error("LinkedIn URL is required");
+      if (!/^https?:\/\/(www\.)?linkedin\.com\//i.test(linkedin.trim()))
+        throw new Error("Please enter a valid LinkedIn URL (e.g. https://linkedin.com/in/yourname)");
       if (!github.trim()) throw new Error("GitHub URL is required");
+      if (!/^https?:\/\/(www\.)?github\.com\//i.test(github.trim()))
+        throw new Error("Please enter a valid GitHub URL (e.g. https://github.com/yourusername)");
       if (!city.trim()) throw new Error("City is required");
       if (!stateVal.trim()) throw new Error("State is required");
       if (!bio.trim()) throw new Error("Short bio is required");
@@ -391,6 +395,7 @@ function ProfilePage() {
                   onChange={(e) => setLinkedin(e.target.value)}
                   placeholder="https://linkedin.com/in/…"
                 />
+                <p className="text-xs text-muted-foreground mt-1">Must be a linkedin.com URL</p>
               </F>
               <F label="GitHub URL" className="col-span-2">
                 <Input
@@ -398,6 +403,7 @@ function ProfilePage() {
                   onChange={(e) => setGithub(e.target.value)}
                   placeholder="https://github.com/…"
                 />
+                <p className="text-xs text-muted-foreground mt-1">Must be a github.com URL</p>
               </F>
               <F label="Skills" className="col-span-2">
                 <div className="flex gap-2">

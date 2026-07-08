@@ -149,7 +149,11 @@ function Onboarding() {
       if (!branch.trim() || !course.trim()) throw new Error("Course & branch are required");
       if (!gradYear || isNaN(Number(gradYear))) throw new Error("Graduation year is required");
       if (!linkedin.trim()) throw new Error("LinkedIn URL is required");
+      if (!/^https?:\/\/(www\.)?linkedin\.com\//i.test(linkedin.trim()))
+        throw new Error("Please enter a valid LinkedIn URL (e.g. https://linkedin.com/in/yourname)");
       if (!github.trim()) throw new Error("GitHub URL is required");
+      if (!/^https?:\/\/(www\.)?github\.com\//i.test(github.trim()))
+        throw new Error("Please enter a valid GitHub URL (e.g. https://github.com/yourusername)");
       if (!city.trim()) throw new Error("City is required");
       if (!stateVal.trim()) throw new Error("State is required");
       if (!bio.trim()) throw new Error("Short bio is required");
@@ -346,13 +350,17 @@ function Onboarding() {
             <Input
               value={linkedin}
               onChange={(e) => setLinkedin(e.target.value)}
+              placeholder="https://linkedin.com/in/…"
             />
+            <p className="text-xs text-muted-foreground mt-1">Must be a linkedin.com URL</p>
           </Field>
           <Field label="GitHub URL *">
             <Input
               value={github}
               onChange={(e) => setGithub(e.target.value)}
+              placeholder="https://github.com/…"
             />
+            <p className="text-xs text-muted-foreground mt-1">Must be a github.com URL</p>
           </Field>
           <Field label="Skills * (at least 1)" className="sm:col-span-2">
             <div className="flex gap-2">

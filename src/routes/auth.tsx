@@ -38,6 +38,12 @@ function AuthPage() {
   const strength = useMemo(() => scorePassword(password), [password]);
 
   useEffect(() => {
+    // Don't auto-redirect if this is a password recovery flow
+    const hash = window.location.hash;
+    if (hash && (hash.includes("type=recovery") || hash.includes("type=signup"))) {
+      setChecking(false);
+      return;
+    }
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) navigate({ to: "/dashboard", replace: true });
       else setChecking(false);
