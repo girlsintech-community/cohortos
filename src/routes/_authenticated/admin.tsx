@@ -349,7 +349,7 @@ function SubmissionsPanel() {
     mutationFn: async ({ id, feedback }: { id: string; feedback: string }) => {
       const { error } = await supabase
         .from("challenge_submissions")
-        .update({ status: "rejected", feedback: feedback.trim() || null })
+        .update({ status: "rejected", feedback: feedback.trim() || null } as any)
         .eq("id", id);
       if (error) throw error;
     },

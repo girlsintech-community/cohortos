@@ -14,17 +14,14 @@ export const Route = createFileRoute("/auth")({
 });
 
 async function isEmailAllowed(email: string): Promise<boolean> {
-  const { data, error } = await supabase
-    .from("allowed_emails")
-    .select("id")
-    .eq("email", email.toLowerCase().trim())
-    .maybeSingle();
+  const { data, error } = await (supabase as any).rpc("is_email_allowed", {
+    _email: email.toLowerCase().trim(),
+  });
   if (error) {
-    // If the table doesn't exist yet (migration not applied), allow all
     console.warn("Could not check allowed_emails:", error.message);
-    return true;
+    return false;
   }
-  return !!data;
+  return data === true;
 }
 
 function AuthPage() {
