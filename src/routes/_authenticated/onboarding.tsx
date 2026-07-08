@@ -292,7 +292,6 @@ function Onboarding() {
               value={bio}
               onChange={(e) => setBio(e.target.value)}
               maxLength={280}
-              placeholder="Tell us a bit about yourself…"
             />
           </Field>
         </CardContent>
@@ -347,14 +346,12 @@ function Onboarding() {
             <Input
               value={linkedin}
               onChange={(e) => setLinkedin(e.target.value)}
-              placeholder="https://linkedin.com/in/…"
             />
           </Field>
           <Field label="GitHub URL *">
             <Input
               value={github}
               onChange={(e) => setGithub(e.target.value)}
-              placeholder="https://github.com/…"
             />
           </Field>
           <Field label="Skills * (at least 1)" className="sm:col-span-2">
