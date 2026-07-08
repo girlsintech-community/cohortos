@@ -29,6 +29,21 @@ function LeaderboardPage() {
     },
   });
 
+  const { data: scores } = useQuery({
+    queryKey: ["leaderboardScores"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc("get_leaderboard_scores");
+      if (error) throw error;
+      return data as Array<{
+        user_id: string;
+        dsa_score: number;
+        community_score: number;
+        project_score: number;
+        mentor_score: number;
+      }>;
+    },
+  });
+
   const filtered = (data ?? []).filter((p) => {
     if (!q.trim()) return true;
     const s = q.toLowerCase();
@@ -38,20 +53,13 @@ function LeaderboardPage() {
     );
   });
 
+  const scoreMap = new Map((scores ?? []).map((s) => [s.user_id, s]));
   const boards = {
     xp: filtered,
-    dsa: rankBySignal(filtered, ["challenge_approved", "challenge_submitted", "dsa_problem_solved"]),
-    community: rankBySignal(filtered, [
-      "answered_doubt",
-      "answered_discussion_doubt",
-      "reputation_helpful",
-      "reputation_great_explanation",
-      "reputation_motivated_me",
-      "reputation_clever_solution",
-      "reputation_mentor_helpful",
-    ]),
-    projects: rankBySignal(filtered, ["project_update_uploaded", "builder_progress"]),
-    mentor: rankBySignal(filtered, ["mentor_appreciation", "reputation_mentor_helpful"]),
+    dsa: rankByScore(filtered, (p) => scoreMap.get(p.id)?.dsa_score ?? 0),
+    community: rankByScore(filtered, (p) => scoreMap.get(p.id)?.community_score ?? 0),
+    projects: rankByScore(filtered, (p) => scoreMap.get(p.id)?.project_score ?? 0),
+    mentor: rankByScore(filtered, (p) => scoreMap.get(p.id)?.mentor_score ?? 0),
   };
 
   return (
@@ -85,19 +93,19 @@ function LeaderboardPage() {
             <TabsTrigger value="mentor">Mentor</TabsTrigger>
           </TabsList>
           <TabsContent value="xp" className="mt-4">
-            <Board rows={boards.xp} userId={user.id} metric="xp" />
+            <Board rows={boards.xp} userId={user.id} metric="xp" getScore={(p) => p.xp} />
           </TabsContent>
           <TabsContent value="dsa" className="mt-4">
-            <Board rows={boards.dsa} userId={user.id} metric="dsa" />
+            <Board rows={boards.dsa} userId={user.id} metric="dsa" getScore={(p) => scoreMap.get(p.id)?.dsa_score ?? 0} />
           </TabsContent>
           <TabsContent value="community" className="mt-4">
-            <Board rows={boards.community} userId={user.id} metric="community" />
+            <Board rows={boards.community} userId={user.id} metric="community" getScore={(p) => scoreMap.get(p.id)?.community_score ?? 0} />
           </TabsContent>
           <TabsContent value="projects" className="mt-4">
-            <Board rows={boards.projects} userId={user.id} metric="projects" />
+            <Board rows={boards.projects} userId={user.id} metric="projects" getScore={(p) => scoreMap.get(p.id)?.project_score ?? 0} />
           </TabsContent>
           <TabsContent value="mentor" className="mt-4">
-            <Board rows={boards.mentor} userId={user.id} metric="mentor" />
+            <Board rows={boards.mentor} userId={user.id} metric="mentor" getScore={(p) => scoreMap.get(p.id)?.mentor_score ?? 0} />
           </TabsContent>
         </Tabs>
       )}
@@ -115,11 +123,21 @@ type Row = {
   college: string | null;
 };
 
-function rankBySignal(rows: Row[], _signals: string[]) {
-  return [...rows].sort((a, b) => b.xp - a.xp);
+function rankByScore(rows: Row[], getScore: (row: Row) => number) {
+  return [...rows].sort((a, b) => getScore(b) - getScore(a) || b.xp - a.xp);
 }
 
-function Board({ rows, userId, metric }: { rows: Row[]; userId: string; metric: string }) {
+function Board({
+  rows,
+  userId,
+  metric,
+  getScore,
+}: {
+  rows: Row[];
+  userId: string;
+  metric: string;
+  getScore: (row: Row) => number;
+}) {
   return (
     <Card>
       <CardContent className="p-0 divide-y">
@@ -154,7 +172,7 @@ function Board({ rows, userId, metric }: { rows: Row[]; userId: string; metric: 
                   {p.college && <p className="text-xs text-muted-foreground truncate">{p.college}</p>}
                 </div>
                 <div className="text-right">
-                  <p className="font-bold text-primary">{p.xp.toLocaleString()} XP</p>
+                  <p className="font-bold text-primary">{getScore(p).toLocaleString()} XP</p>
                   <p className="text-xs text-muted-foreground inline-flex items-center gap-2">
                     <Trophy className="h-3 w-3" /> L{p.level} <Flame className="h-3 w-3" /> {p.streak}d
                   </p>
