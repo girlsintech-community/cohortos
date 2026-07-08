@@ -237,3 +237,92 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* ============ ACCESSIBILITY OVERRIDES ============ */
+
+/* 1. Color Blindness CSS Filters */
+.a11y-filter-protanopia {
+  filter: url(#a11y-protanopia) !important;
+}
+.a11y-filter-deuteranopia {
+  filter: url(#a11y-deuteranopia) !important;
+}
+.a11y-filter-tritanopia {
+  filter: url(#a11y-tritanopia) !important;
+}
+.a11y-filter-grayscale {
+  filter: grayscale(100%) !important;
+}
+.a11y-filter-high-contrast {
+  filter: contrast(125%) saturate(110%) !important;
+}
+
+/* 2. Text Sizes */
+.a11y-text-lg {
+  font-size: 1.125rem !important; /* 18px */
+}
+.a11y-text-lg p, .a11y-text-lg span, .a11y-text-lg a, .a11y-text-lg button, .a11y-text-lg label, .a11y-text-lg input, .a11y-text-lg textarea {
+  font-size: 1.05em !important;
+  line-height: 1.6 !important;
+}
+.a11y-text-lg h1 { font-size: 2.25rem !important; }
+.a11y-text-lg h2 { font-size: 1.75rem !important; }
+.a11y-text-lg h3 { font-size: 1.35rem !important; }
+
+.a11y-text-xl {
+  font-size: 1.25rem !important; /* 20px */
+}
+.a11y-text-xl p, .a11y-text-xl span, .a11y-text-xl a, .a11y-text-xl button, .a11y-text-xl label, .a11y-text-xl input, .a11y-text-xl textarea {
+  font-size: 1.15em !important;
+  line-height: 1.7 !important;
+}
+.a11y-text-xl h1 { font-size: 2.5rem !important; }
+.a11y-text-xl h2 { font-size: 2rem !important; }
+.a11y-text-xl h3 { font-size: 1.5rem !important; }
+
+/* 3. Dyslexic-Friendly Font & Spacing */
+.a11y-dyslexic {
+  font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif !important; /* High readability sans font fallback for OpenDyslexic */
+  letter-spacing: 0.1em !important;
+  word-spacing: 0.15em !important;
+}
+.a11y-dyslexic p, .a11y-dyslexic span, .a11y-dyslexic a, .a11y-dyslexic h1, .a11y-dyslexic h2, .a11y-dyslexic h3, .a11y-dyslexic button {
+  line-height: 1.8 !important;
+}
+
+/* 4. Line Spacing */
+.a11y-spacing-wide p, .a11y-spacing-wide span, .a11y-spacing-wide div {
+  line-height: 1.8 !important;
+}
+.a11y-spacing-extrawide p, .a11y-spacing-extrawide span, .a11y-spacing-extrawide div {
+  line-height: 2.1 !important;
+}
+
+/* 5. Pure High Contrast border outline rules */
+.a11y-high-contrast-mode {
+  --background: oklch(0 0 0) !important; /* Pure black background */
+  --foreground: oklch(1 0 0) !important; /* Pure white text */
+  --card: oklch(0 0 0) !important;
+  --card-foreground: oklch(1 0 0) !important;
+  --popover: oklch(0 0 0) !important;
+  --popover-foreground: oklch(1 0 0) !important;
+  --primary: oklch(0.6 0.15 250) !important; /* High contrast neon primary */
+  --primary-foreground: oklch(1 0 0) !important;
+  --muted: oklch(0.2 0 0) !important;
+  --muted-foreground: oklch(0.85 0 0) !important;
+  --border: oklch(1 0 0) !important; /* Solid white borders */
+}
+.a11y-high-contrast-mode border, 
+.a11y-high-contrast-mode .border, 
+.a11y-high-contrast-mode .border-t, 
+.a11y-high-contrast-mode .border-b,
+.a11y-high-contrast-mode .border-l,
+.a11y-high-contrast-mode .border-r {
+  border-color: oklch(1 0 0) !important;
+  border-width: 1.5px !important;
+}
+.a11y-high-contrast-mode a, .a11y-high-contrast-mode button {
+  outline: 2px solid oklch(1 0 0) !important;
+  outline-offset: 2px;
+}
+

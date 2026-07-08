@@ -28,6 +28,7 @@ import {
   HeartHandshake,
   Sun,
   Moon,
+  Accessibility,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
@@ -52,6 +53,14 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -271,15 +280,25 @@ function SettingsMenu({ userId, signOut }: { userId: string; signOut: () => void
   const navigate = useNavigate();
   const [reportOpen, setReportOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [a11yOpen, setA11yOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
+  // Theme state
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     if (typeof window !== "undefined") {
       return document.documentElement.classList.contains("dark") ? "dark" : "light";
     }
     return "light";
   });
+
+  // Accessibility settings states loaded from localStorage
+  const [lang, setLang] = useState(() => (typeof window !== "undefined" ? localStorage.getItem("a11y-lang") || "en" : "en"));
+  const [filter, setFilter] = useState(() => (typeof window !== "undefined" ? localStorage.getItem("a11y-filter") || "none" : "none"));
+  const [textSize, setTextSize] = useState(() => (typeof window !== "undefined" ? localStorage.getItem("a11y-text-size") || "normal" : "normal"));
+  const [dyslexic, setDyslexic] = useState(() => (typeof window !== "undefined" ? localStorage.getItem("a11y-dyslexic") === "true" : false));
+  const [spacing, setSpacing] = useState(() => (typeof window !== "undefined" ? localStorage.getItem("a11y-spacing") || "normal" : "normal"));
+  const [highContrast, setHighContrast] = useState(() => (typeof window !== "undefined" ? localStorage.getItem("a11y-contrast-mode") === "true" : false));
 
   function toggleTheme() {
     const nextTheme = theme === "light" ? "dark" : "light";
@@ -291,6 +310,79 @@ function SettingsMenu({ userId, signOut }: { userId: string; signOut: () => void
     }
     localStorage.setItem("theme", nextTheme);
     toast.success(`Switched to ${nextTheme} mode`);
+  }
+
+  // Accessibility dynamic updates
+  function handleLangChange(newLang: string) {
+    setLang(newLang);
+    localStorage.setItem("a11y-lang", newLang);
+    const select = document.querySelector("select.goog-te-combo") as HTMLSelectElement;
+    if (select) {
+      select.value = newLang;
+      select.dispatchEvent(new Event("change"));
+      toast.success("Translating page...");
+    } else {
+      toast.error("Translation engine loading. Please try again in a moment.");
+    }
+  }
+
+  function handleFilterChange(newFilter: string) {
+    // Remove old class
+    if (filter !== "none") {
+      document.documentElement.classList.remove(`a11y-filter-${filter}`);
+    }
+    setFilter(newFilter);
+    localStorage.setItem("a11y-filter", newFilter);
+    if (newFilter !== "none") {
+      document.documentElement.classList.add(`a11y-filter-${newFilter}`);
+    }
+    toast.success("Applied visual filter");
+  }
+
+  function handleTextSizeChange(newSize: string) {
+    if (textSize !== "normal") {
+      document.documentElement.classList.remove(`a11y-text-${textSize}`);
+    }
+    setTextSize(newSize);
+    localStorage.setItem("a11y-text-size", newSize);
+    if (newSize !== "normal") {
+      document.documentElement.classList.add(`a11y-text-${newSize}`);
+    }
+    toast.success("Adjusted text size");
+  }
+
+  function handleDyslexicChange(checked: boolean) {
+    setDyslexic(checked);
+    localStorage.setItem("a11y-dyslexic", checked ? "true" : "false");
+    if (checked) {
+      document.documentElement.classList.add("a11y-dyslexic");
+    } else {
+      document.documentElement.classList.remove("a11y-dyslexic");
+    }
+    toast.success(checked ? "Dyslexic font enabled" : "Dyslexic font disabled");
+  }
+
+  function handleSpacingChange(newSpacing: string) {
+    if (spacing !== "normal") {
+      document.documentElement.classList.remove(`a11y-spacing-${spacing}`);
+    }
+    setSpacing(newSpacing);
+    localStorage.setItem("a11y-spacing", newSpacing);
+    if (newSpacing !== "normal") {
+      document.documentElement.classList.add(`a11y-spacing-${newSpacing}`);
+    }
+    toast.success("Adjusted line spacing");
+  }
+
+  function handleContrastChange(checked: boolean) {
+    setHighContrast(checked);
+    localStorage.setItem("a11y-contrast-mode", checked ? "true" : "false");
+    if (checked) {
+      document.documentElement.classList.add("a11y-high-contrast-mode");
+    } else {
+      document.documentElement.classList.remove("a11y-high-contrast-mode");
+    }
+    toast.success(checked ? "High Contrast mode enabled" : "High Contrast mode disabled");
   }
 
   async function submitReport(type: "bug_report" | "feedback") {
@@ -349,6 +441,10 @@ function SettingsMenu({ userId, signOut }: { userId: string; signOut: () => void
               </>
             )}
           </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setA11yOpen(true)} className="cursor-pointer">
+            <Accessibility className="h-4 w-4 mr-2" />
+            Accessibility
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setReportOpen(true)} className="cursor-pointer">
             <ShieldAlert className="h-4 w-4 mr-2" />
             Report a Bug
@@ -364,6 +460,127 @@ function SettingsMenu({ userId, signOut }: { userId: string; signOut: () => void
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {/* Accessibility settings dialog */}
+      <Dialog open={a11yOpen} onOpenChange={setA11yOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Accessibility className="h-5 w-5 text-primary" /> Accessibility Settings
+            </DialogTitle>
+            <DialogDescription>
+              Personalize CohortOS to make learning and navigation comfortable for your preference.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5 py-4 divide-y divide-border/50">
+            {/* Section 1: Languages */}
+            <div className="space-y-3">
+              <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                Language (भाषा)
+              </Label>
+              <div className="space-y-1">
+                <Select value={lang} onValueChange={handleLangChange}>
+                  <SelectTrigger className="w-full text-xs">
+                    <SelectValue placeholder="Choose Language" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="en">English (default)</SelectItem>
+                    <SelectItem value="hi">Hindi (हिन्दी)</SelectItem>
+                    <SelectItem value="bn">Bengali (বাংলা)</SelectItem>
+                    <SelectItem value="ta">Tamil (தமிழ்)</SelectItem>
+                    <SelectItem value="te">Telugu (తెలుగు)</SelectItem>
+                    <SelectItem value="mr">Marathi (मराठी)</SelectItem>
+                    <SelectItem value="kn">Kannada (ಕನ್ನಡ)</SelectItem>
+                    <SelectItem value="gu">Gujarati (ગુજરાતી)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-[10px] text-muted-foreground">
+                  Powered by Google Translate. Automatically localizes all page contents including community discussions and submissions.
+                </p>
+              </div>
+            </div>
+
+            {/* Section 2: Visual Adaptations */}
+            <div className="space-y-3 pt-4">
+              <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                Visual & Color Adaptations
+              </Label>
+              
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <span className="text-xs font-medium">Color Blindness Filter</span>
+                  <Select value={filter} onValueChange={handleFilterChange}>
+                    <SelectTrigger className="w-full text-xs">
+                      <SelectValue placeholder="No Filters" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Default (No filter)</SelectItem>
+                      <SelectItem value="deuteranopia">Deuteranopia (Green Weakness)</SelectItem>
+                      <SelectItem value="protanopia">Protanopia (Red Weakness)</SelectItem>
+                      <SelectItem value="tritanopia">Tritanopia (Blue-Yellow Blindness)</SelectItem>
+                      <SelectItem value="grayscale">Monochromacy (Grayscale)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center justify-between py-1">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="hc-mode" className="text-xs font-semibold">High Contrast Mode</Label>
+                    <p className="text-[10px] text-muted-foreground">Forces pure black/white theme with solid borders.</p>
+                  </div>
+                  <Switch id="hc-mode" checked={highContrast} onCheckedChange={handleContrastChange} />
+                </div>
+              </div>
+            </div>
+
+            {/* Section 3: Text & Reading Comfort */}
+            <div className="space-y-3 pt-4">
+              <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                Text & Reading Comfort
+              </Label>
+
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <span className="text-xs font-medium">Text Size Scale</span>
+                  <Select value={textSize} onValueChange={handleTextSizeChange}>
+                    <SelectTrigger className="w-full text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="normal">Normal (100%)</SelectItem>
+                      <SelectItem value="lg">Large (+20%)</SelectItem>
+                      <SelectItem value="xl">Extra Large (+40%)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <span className="text-xs font-medium">Line Height Spacing</span>
+                  <Select value={spacing} onValueChange={handleSpacingChange}>
+                    <SelectTrigger className="w-full text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="normal">Normal</SelectItem>
+                      <SelectItem value="wide">Wide</SelectItem>
+                      <SelectItem value="extrawide">Extra Wide</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center justify-between py-1">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="dyslexia-font" className="text-xs font-semibold">Dyslexic-Friendly Font</Label>
+                    <p className="text-[10px] text-muted-foreground">Changes font styles and letter tracking for easier reading.</p>
+                  </div>
+                  <Switch id="dyslexia-font" checked={dyslexic} onCheckedChange={handleDyslexicChange} />
+                </div>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Bug report dialog */}
       <Dialog open={reportOpen} onOpenChange={(open) => { setReportOpen(open); if(!open) setMessage(""); }}>

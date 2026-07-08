@@ -130,9 +130,37 @@ function RootShell({ children }: { children: ReactNode }) {
     <html lang="en">
       <head>
         <HeadContent />
+        <script dangerouslySetInnerHTML={{__html: `
+          function googleTranslateElementInit() {
+            new google.translate.TranslateElement({
+              pageLanguage: 'en',
+              includedLanguages: 'en,hi,bn,ta,te,mr,kn,gu',
+              layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
+              autoDisplay: false
+            }, 'google_translate_element');
+          }
+        `}} />
+        <script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit" async defer />
       </head>
       <body>
+        <div id="google_translate_element" style={{ display: "none" }}></div>
         {children}
+        
+        {/* Hidden SVG filters for color blindness simulators/corrections */}
+        <svg style={{ display: "none" }} aria-hidden="true">
+          <defs>
+            <filter id="a11y-protanopia">
+              <feColorMatrix type="matrix" values="0.567, 0.433, 0, 0, 0, 0.558, 0.442, 0, 0, 0, 0, 0.242, 0.758, 0, 0, 0, 0, 0, 1, 0" />
+            </filter>
+            <filter id="a11y-deuteranopia">
+              <feColorMatrix type="matrix" values="0.625, 0.375, 0, 0, 0, 0.7, 0.3, 0, 0, 0, 0, 0.3, 0.7, 0, 0, 0, 0, 0, 1, 0" />
+            </filter>
+            <filter id="a11y-tritanopia">
+              <feColorMatrix type="matrix" values="0.95, 0.05, 0, 0, 0, 0, 0.433, 0.567, 0, 0, 0, 0.475, 0.525, 0, 0, 0, 0, 0, 1, 0" />
+            </filter>
+          </defs>
+        </svg>
+
         <Scripts />
       </body>
     </html>
@@ -144,12 +172,61 @@ function RootComponent() {
   const router = useRouter();
 
   useEffect(() => {
+    // 1. Theme
     const savedTheme = localStorage.getItem("theme");
     const isDark = savedTheme === "dark" || (!savedTheme && window.matchMedia("(prefers-color-scheme: dark)").matches);
     if (isDark) {
       document.documentElement.classList.add("dark");
     } else {
       document.documentElement.classList.remove("dark");
+    }
+
+    // 2. Color Blindness / Filter Mode
+    const filterMode = localStorage.getItem("a11y-filter") || "none";
+    if (filterMode !== "none") {
+      document.documentElement.classList.add(`a11y-filter-${filterMode}`);
+    }
+
+    // 3. Text Size
+    const textSize = localStorage.getItem("a11y-text-size") || "normal";
+    if (textSize !== "normal") {
+      document.documentElement.classList.add(`a11y-text-${textSize}`);
+    }
+
+    // 4. Dyslexic mode
+    const dyslexic = localStorage.getItem("a11y-dyslexic") === "true";
+    if (dyslexic) {
+      document.documentElement.classList.add("a11y-dyslexic");
+    }
+
+    // 5. Line spacing
+    const spacing = localStorage.getItem("a11y-spacing") || "normal";
+    if (spacing !== "normal") {
+      document.documentElement.classList.add(`a11y-spacing-${spacing}`);
+    }
+
+    // 6. High Contrast Class Mode
+    const contrastMode = localStorage.getItem("a11y-contrast-mode") === "true";
+    if (contrastMode) {
+      document.documentElement.classList.add("a11y-high-contrast-mode");
+    }
+  }, []);
+
+  useEffect(() => {
+    const savedLang = localStorage.getItem("a11y-lang") || "en";
+    if (savedLang !== "en") {
+      let tries = 0;
+      const interval = setInterval(() => {
+        const select = document.querySelector("select.goog-te-combo") as HTMLSelectElement;
+        if (select) {
+          select.value = savedLang;
+          select.dispatchEvent(new Event("change"));
+          clearInterval(interval);
+        }
+        tries++;
+        if (tries > 40) clearInterval(interval); // stop after 20s
+      }, 500);
+      return () => clearInterval(interval);
     }
   }, []);
 
