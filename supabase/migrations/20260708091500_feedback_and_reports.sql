@@ -1,4 +1,4 @@
--- Migration: Feedback & Reports Table and RLS
+-- Migration: Feedback & Reports Table, RLS, and Resource Insertion Policy
 CREATE TABLE IF NOT EXISTS public.feedback_reports (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
@@ -25,3 +25,9 @@ DROP POLICY IF EXISTS "Admins delete feedback reports" ON public.feedback_report
 CREATE POLICY "Admins delete feedback reports"
   ON public.feedback_reports FOR DELETE TO authenticated
   USING (public.has_role(auth.uid(), 'admin'));
+
+-- Allow authenticated users to insert suggested resources as inactive
+DROP POLICY IF EXISTS "Users suggest resources" ON public.resources;
+CREATE POLICY "Users suggest resources"
+  ON public.resources FOR INSERT TO authenticated
+  WITH CHECK (is_active = false AND auth.uid() = created_by);
