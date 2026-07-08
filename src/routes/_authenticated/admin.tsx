@@ -36,6 +36,21 @@ import {
   Plus,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+  AreaChart,
+  Area
+} from "recharts";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   beforeLoad: ({ context }) => {
@@ -91,21 +106,24 @@ function AdminPage() {
 
 function OverviewPanel() {
   const { data, isLoading } = useQuery({
-    queryKey: ["admin", "overview"],
+    queryKey: ["admin", "detailed-overview"],
     queryFn: async () => {
       const heads = { count: "exact" as const, head: true };
       const [
         members,
         onboarded,
-        posts,
-        likes,
-        discussions,
-        replies,
-        challenges,
-        subs,
+        postsCount,
+        likesCount,
+        discussionsCount,
+        repliesCount,
+        challengesCount,
+        subsCount,
         subsPending,
         subsApproved,
-        xpRow,
+        xpEvents,
+        reactions,
+        topMembers,
+        popularPosts
       ] = await Promise.all([
         supabase.from("profiles").select("*", heads),
         supabase.from("profiles").select("*", heads).eq("onboarded", true),
@@ -117,21 +135,46 @@ function OverviewPanel() {
         supabase.from("challenge_submissions").select("*", heads),
         supabase.from("challenge_submissions").select("*", heads).eq("status", "submitted"),
         supabase.from("challenge_submissions").select("*", heads).eq("status", "approved"),
-        supabase.from("profiles").select("xp"),
+        supabase.from("xp_events").select("event_type, xp_amount"),
+        supabase.from("community_reactions").select("reaction_type, target_type"),
+        supabase.from("profiles").select("display_name, username, xp, level, streak").order("xp", { ascending: false }).limit(10),
+        supabase.from("posts").select("id, content, category, created_at, profiles!posts_author_profile_fkey(display_name, username), post_likes(user_id), post_comments(id)")
       ]);
-      const totalXp = (xpRow.data ?? []).reduce((s: number, r: any) => s + (r.xp ?? 0), 0);
+
+      const totalXp = (topMembers.data ?? []).reduce((s: number, r: any) => s + (r.xp ?? 0), 0); // fallback or sum
+      
+      // Calculate daily logins count
+      const dailyLoginsCount = (xpEvents.data ?? []).filter((e: any) => e.event_type === "daily_login").length;
+
+      // Group reactions by type
+      const reactionCounts = (reactions.data ?? []).reduce((acc: Record<string, number>, r: any) => {
+        acc[r.reaction_type] = (acc[r.reaction_type] || 0) + 1;
+        return acc;
+      }, {});
+
+      // Sort posts by popularity (likes + comments)
+      const sortedPosts = (popularPosts.data ?? []).map((p: any) => ({
+        ...p,
+        likesCount: p.post_likes?.length ?? 0,
+        commentsCount: p.post_comments?.length ?? 0,
+        score: (p.post_likes?.length ?? 0) + (p.post_comments?.length ?? 0)
+      })).sort((a: any, b: any) => b.score - a.score).slice(0, 5);
+
       return {
         members: members.count ?? 0,
         onboarded: onboarded.count ?? 0,
-        posts: posts.count ?? 0,
-        likes: likes.count ?? 0,
-        discussions: discussions.count ?? 0,
-        replies: replies.count ?? 0,
-        challenges: challenges.count ?? 0,
-        subs: subs.count ?? 0,
+        posts: postsCount.count ?? 0,
+        likes: likesCount.count ?? 0,
+        discussions: discussionsCount.count ?? 0,
+        replies: repliesCount.count ?? 0,
+        challenges: challengesCount.count ?? 0,
+        subs: subsCount.count ?? 0,
         subsPending: subsPending.count ?? 0,
         subsApproved: subsApproved.count ?? 0,
-        totalXp,
+        dailyLogins: dailyLoginsCount,
+        reactionCounts,
+        topMembers: topMembers.data ?? [],
+        sortedPosts
       };
     },
   });
@@ -146,38 +189,187 @@ function OverviewPanel() {
   const stats = [
     { icon: Users, label: "Members", value: data.members, sub: `${data.onboarded} onboarded` },
     { icon: Rss, label: "Posts", value: data.posts, sub: `${data.likes} likes` },
-    {
-      icon: MessagesSquare,
-      label: "Discussions",
-      value: data.discussions,
-      sub: `${data.replies} replies`,
-    },
+    { icon: MessagesSquare, label: "Discussions", value: data.discussions, sub: `${data.replies} replies` },
     { icon: Target, label: "Challenges", value: data.challenges, sub: `${data.subs} submissions` },
-    {
-      icon: CheckCircle2,
-      label: "Approved",
-      value: data.subsApproved,
-      sub: `${data.subsPending} pending`,
-    },
-    { icon: Flame, label: "Total XP", value: data.totalXp, sub: "awarded across cohort" },
+    { icon: CheckCircle2, label: "Pending Approvals", value: data.subsPending, sub: `${data.subsApproved} approved` },
+    { icon: Flame, label: "Daily Logins Triggered", value: data.dailyLogins, sub: "Total login events tracked" },
   ];
 
+  // Activity breakdown for Bar Chart
+  const activityData = [
+    { name: "Posts", count: data.posts },
+    { name: "Comments", count: data.replies }, // comments in discussions
+    { name: "Replies", count: data.replies }, // post comments
+    { name: "Discussions", count: data.discussions },
+    { name: "Daily Logins", count: data.dailyLogins },
+    { name: "Likes Given", count: data.likes },
+  ];
+
+  // Reactions breakdown for Pie Chart
+  const reactionColors = {
+    helpful: "#3b82f6",          // blue
+    great_explanation: "#10b981",// emerald
+    motivated_me: "#f59e0b",     // amber
+    clever_solution: "#8b5cf6",  // purple
+    upvote: "#ec4899",           // pink
+    mentor_helpful: "#ef4444"    // red
+  };
+
+  const reactionData = Object.keys(data.reactionCounts).map(key => ({
+    name: key.replace("_", " ").toUpperCase(),
+    value: data.reactionCounts[key],
+    color: (reactionColors as any)[key] || "#6b7280"
+  }));
+
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {stats.map((s) => (
-        <Card key={s.label}>
-          <CardContent className="p-5 flex items-start justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">{s.label}</p>
-              <p className="mt-1 text-3xl font-bold">{s.value.toLocaleString()}</p>
-              <p className="text-xs text-muted-foreground mt-1">{s.sub}</p>
-            </div>
-            <div className="grid h-10 w-10 place-items-center rounded-lg bg-primary/10 text-primary">
-              <s.icon className="h-5 w-5" />
-            </div>
+    <div className="space-y-6">
+      {/* Cards summary grid */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {stats.map((s) => (
+          <Card key={s.label}>
+            <CardContent className="p-5 flex items-start justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">{s.label}</p>
+                <p className="mt-1 text-3xl font-bold">{s.value.toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground mt-1">{s.sub}</p>
+              </div>
+              <div className="grid h-10 w-10 place-items-center rounded-lg bg-primary/10 text-primary">
+                <s.icon className="h-5 w-5" />
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Chart analytics grid */}
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-semibold">User Engagement & Activity Trends</CardTitle>
+          </CardHeader>
+          <CardContent className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={activityData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="name" fontSize={11} />
+                <YAxis fontSize={11} />
+                <Tooltip />
+                <Bar dataKey="count" fill="var(--primary)" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
-      ))}
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-semibold">Community Reactions Share</CardTitle>
+          </CardHeader>
+          <CardContent className="h-80 flex flex-col justify-between">
+            {reactionData.length === 0 ? (
+              <div className="flex-1 grid place-items-center text-xs text-muted-foreground">
+                No reaction events registered yet.
+              </div>
+            ) : (
+              <>
+                <div className="flex-1">
+                  <ResponsiveContainer width="100%" height="90%">
+                    <PieChart>
+                      <Pie
+                        data={reactionData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={80}
+                        paddingAngle={5}
+                        dataKey="value"
+                      >
+                        {reactionData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-[10px] border-t pt-3">
+                  {reactionData.map((entry, index) => (
+                    <div key={index} className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: entry.color }} />
+                      <span className="truncate text-muted-foreground">{entry.name} ({entry.value})</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Leaderboard and Popular posts grid */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Most Active Members (XP Points) */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-semibold">Most Active Members (XP Points)</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0 overflow-x-auto">
+            <table className="w-full text-xs text-left">
+              <thead className="border-b bg-muted/40 font-semibold text-muted-foreground">
+                <tr>
+                  <th className="p-3">Rank</th>
+                  <th className="p-3">Member</th>
+                  <th className="p-3 text-right">Streak</th>
+                  <th className="p-3 text-right">Lvl</th>
+                  <th className="p-3 text-right font-bold">XP</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.topMembers.map((m: any, idx: number) => (
+                  <tr key={idx} className="border-b hover:bg-muted/30">
+                    <td className="p-3 text-muted-foreground font-medium">#{idx + 1}</td>
+                    <td className="p-3">
+                      <p className="font-semibold">{m.display_name}</p>
+                      <p className="text-[10px] text-muted-foreground">@{m.username}</p>
+                    </td>
+                    <td className="p-3 text-right text-orange-500 font-medium">🔥 {m.streak ?? 0}d</td>
+                    <td className="p-3 text-right">{m.level ?? 1}</td>
+                    <td className="p-3 text-right font-bold text-primary">{(m.xp ?? 0).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+
+        {/* Most Liked Feed Messages */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-semibold">Trending Feed Messages</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {data.sortedPosts.length === 0 ? (
+              <p className="text-center text-xs text-muted-foreground py-10">No feed updates posted yet.</p>
+            ) : (
+              data.sortedPosts.map((p: any, index: number) => (
+                <div key={p.id} className="flex items-start gap-3 rounded border p-3 bg-muted/20 hover:bg-muted/30 transition text-xs">
+                  <span className="font-bold text-muted-foreground text-sm shrink-0 mt-0.5">#{index + 1}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-foreground">{p.profiles?.display_name ?? "Someone"}</p>
+                    <p className="mt-1 text-muted-foreground line-clamp-2 italic">"{p.content}"</p>
+                    <div className="mt-2 flex items-center justify-between">
+                      <Badge className="capitalize text-[10px]" variant="outline">{p.category}</Badge>
+                      <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                        <span className="flex items-center gap-1"><Heart className="h-3 w-3 fill-destructive/15 text-destructive" /> {p.likesCount}</span>
+                        <span className="flex items-center gap-1"><MessagesSquare className="h-3 w-3" /> {p.commentsCount}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

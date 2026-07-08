@@ -60,6 +60,11 @@ function ResetPasswordPage() {
               ? "Your password has been changed. Sign in with your new password."
               : "Pick something strong — at least 12 characters with a mix of letters, numbers, and symbols."}
           </CardDescription>
+          {!done && (
+            <div className="mt-2 rounded bg-amber-500/10 border border-amber-500/25 p-2 text-xs text-amber-700 dark:text-amber-400">
+              ⚠️ <strong>Important:</strong> Please write down or save your new password in a safe place so you don't forget it!
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           {done ? (

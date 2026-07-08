@@ -29,6 +29,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useState, useRef, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -151,7 +152,21 @@ function NotificationBell({ userId }: { userId: string }) {
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` },
-        () => qc.invalidateQueries({ queryKey: ["notifications", userId] }),
+        (payload) => {
+          qc.invalidateQueries({ queryKey: ["notifications", userId] });
+          const newNotif = payload.new as any;
+          if (newNotif && newNotif.title) {
+            toast(newNotif.title, {
+              description: newNotif.body,
+              action: newNotif.link ? {
+                label: "View",
+                onClick: () => {
+                  window.location.href = newNotif.link;
+                }
+              } : undefined
+            });
+          }
+        },
       )
       .subscribe();
     return () => {
