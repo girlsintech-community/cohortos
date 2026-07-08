@@ -35,6 +35,33 @@ export type Database = {
         }
         Relationships: []
       }
+      badges: {
+        Row: {
+          created_at: string
+          description: string
+          icon: string
+          id: string
+          name: string
+          slug: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          icon?: string
+          id?: string
+          name: string
+          slug: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          icon?: string
+          id?: string
+          name?: string
+          slug?: string
+        }
+        Relationships: []
+      }
       challenge_submissions: {
         Row: {
           challenge_id: string
@@ -113,6 +140,51 @@ export type Database = {
         }
         Relationships: []
       }
+      community_reactions: {
+        Row: {
+          created_at: string
+          giver_id: string
+          id: string
+          reaction_type: string
+          receiver_id: string
+          target_id: string
+          target_type: string
+        }
+        Insert: {
+          created_at?: string
+          giver_id: string
+          id?: string
+          reaction_type: string
+          receiver_id: string
+          target_id: string
+          target_type: string
+        }
+        Update: {
+          created_at?: string
+          giver_id?: string
+          id?: string
+          reaction_type?: string
+          receiver_id?: string
+          target_id?: string
+          target_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_reactions_giver_id_fkey"
+            columns: ["giver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "community_reactions_receiver_id_fkey"
+            columns: ["receiver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       discussion_replies: {
         Row: {
           author_id: string
@@ -190,6 +262,54 @@ export type Database = {
           },
         ]
       }
+      mentor_appreciations: {
+        Row: {
+          card_type: string
+          created_at: string
+          id: string
+          mentor_id: string
+          message: string | null
+          student_id: string
+          week_start: string
+          xp_bonus: number
+        }
+        Insert: {
+          card_type: string
+          created_at?: string
+          id?: string
+          mentor_id: string
+          message?: string | null
+          student_id: string
+          week_start?: string
+          xp_bonus?: number
+        }
+        Update: {
+          card_type?: string
+          created_at?: string
+          id?: string
+          mentor_id?: string
+          message?: string | null
+          student_id?: string
+          week_start?: string
+          xp_bonus?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mentor_appreciations_mentor_id_fkey"
+            columns: ["mentor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mentor_appreciations_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           body: string | null
@@ -220,6 +340,33 @@ export type Database = {
           title?: string
           type?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      platform_guides: {
+        Row: {
+          body: string
+          id: string
+          slug: string
+          sort_order: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          id?: string
+          slug: string
+          sort_order?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          id?: string
+          slug?: string
+          sort_order?: number
+          title?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -596,6 +743,84 @@ export type Database = {
         }
         Relationships: []
       }
+      user_badges: {
+        Row: {
+          awarded_at: string
+          awarded_by: string | null
+          badge_id: string
+          id: string
+          reason: string | null
+          user_id: string
+        }
+        Insert: {
+          awarded_at?: string
+          awarded_by?: string | null
+          badge_id: string
+          id?: string
+          reason?: string | null
+          user_id: string
+        }
+        Update: {
+          awarded_at?: string
+          awarded_by?: string | null
+          badge_id?: string
+          id?: string
+          reason?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_badges_awarded_by_fkey"
+            columns: ["awarded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_badges_badge_id_fkey"
+            columns: ["badge_id"]
+            isOneToOne: false
+            referencedRelation: "badges"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_badges_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_guide_confirmations: {
+        Row: {
+          confirmed_at: string
+          guide_version: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          confirmed_at?: string
+          guide_version?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          confirmed_at?: string
+          guide_version?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_guide_confirmations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -616,6 +841,44 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      user_streaks: {
+        Row: {
+          best_count: number
+          current_count: number
+          id: string
+          last_activity_date: string | null
+          streak_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          best_count?: number
+          current_count?: number
+          id?: string
+          last_activity_date?: string | null
+          streak_type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          best_count?: number
+          current_count?: number
+          id?: string
+          last_activity_date?: string | null
+          streak_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_streaks_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       xp_events: {
         Row: {
@@ -665,10 +928,13 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_email_allowed: { Args: { _email: string }; Returns: boolean }
       is_pod_member: {
         Args: { _pod_id: string; _user_id: string }
         Returns: boolean
       }
+      level_from_xp: { Args: { _xp: number }; Returns: number }
+      level_name_from_level: { Args: { _level: number }; Returns: string }
       notify_mentions_from_text: {
         Args: {
           _link: string
@@ -678,6 +944,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      record_daily_login: { Args: never; Returns: boolean }
       request_speed_match: {
         Args: never
         Returns: {
@@ -688,6 +955,10 @@ export type Database = {
       }
       set_user_primary_role: {
         Args: { _role: string; _target: string }
+        Returns: undefined
+      }
+      touch_user_streak: {
+        Args: { _streak_type: string; _user: string }
         Returns: undefined
       }
     }
