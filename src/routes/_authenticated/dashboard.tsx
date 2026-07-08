@@ -17,6 +17,12 @@ import {
   Heart,
   BarChart3,
   FileText,
+  Code2,
+  Briefcase,
+  Linkedin,
+  Network,
+  Laptop,
+  BookOpen,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
@@ -26,7 +32,17 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
 });
 
-const XP_PER_LEVEL = 500;
+const XP_PER_LEVEL = 250;
+const LEVEL_NAMES = [
+  "Explorer",
+  "Learner",
+  "Problem Solver",
+  "Builder",
+  "Collaborator",
+  "Contributor",
+  "Mentor's Pick",
+  "Cohort Champion",
+];
 
 function Dashboard() {
   const { user } = Route.useRouteContext();
@@ -42,6 +58,16 @@ function Dashboard() {
       if (error) throw error;
       return data;
     },
+  });
+
+  useQuery({
+    queryKey: ["dailyLogin", user.id],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc("record_daily_login");
+      if (error) throw error;
+      return data as boolean;
+    },
+    staleTime: 1000 * 60 * 60,
   });
 
   const { data: rank } = useQuery({
@@ -71,7 +97,7 @@ function Dashboard() {
   const { data: todayCounts } = useQuery({
     queryKey: ["todayCounts", user.id],
     queryFn: async () => {
-      const [posts, comments, subs] = await Promise.all([
+      const [posts, comments, replies, subs, xpEvents] = await Promise.all([
         supabase
           .from("posts")
           .select("id", { count: "exact", head: true })
@@ -83,12 +109,53 @@ function Dashboard() {
           .eq("author_id", user.id)
           .gte("created_at", dayIso),
         supabase
+          .from("discussion_replies")
+          .select("id", { count: "exact", head: true })
+          .eq("author_id", user.id)
+          .gte("created_at", dayIso),
+        supabase
           .from("challenge_submissions")
           .select("id", { count: "exact", head: true })
           .eq("user_id", user.id)
           .gte("created_at", dayIso),
+        supabase
+          .from("xp_events")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", user.id)
+          .gte("created_at", dayIso),
       ]);
-      return { posts: posts.count ?? 0, comments: comments.count ?? 0, subs: subs.count ?? 0 };
+      return {
+        posts: posts.count ?? 0,
+        comments: (comments.count ?? 0) + (replies.count ?? 0),
+        subs: subs.count ?? 0,
+        xpEvents: xpEvents.count ?? 0,
+      };
+    },
+  });
+
+  const { data: streaks } = useQuery({
+    queryKey: ["streaks", user.id],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("user_streaks")
+        .select("streak_type, current_count, best_count")
+        .eq("user_id", user.id);
+      if (error) throw error;
+      return data as Array<{ streak_type: string; current_count: number; best_count: number }>;
+    },
+  });
+
+  const { data: earnedBadges } = useQuery({
+    queryKey: ["earnedBadges", user.id],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("user_badges")
+        .select("badges(name, icon)")
+        .eq("user_id", user.id)
+        .order("awarded_at", { ascending: false })
+        .limit(6);
+      if (error) throw error;
+      return data as Array<{ badges: { name: string; icon: string } | null }>;
     },
   });
 
@@ -162,9 +229,22 @@ function Dashboard() {
 
   const xp = profile?.xp ?? 0;
   const level = profile?.level ?? 1;
+  const levelName = LEVEL_NAMES[Math.min(Math.max(level, 1), 8) - 1];
   const streak = profile?.streak ?? 0;
   const name = profile?.display_name ?? user.email?.split("@")[0] ?? "Learner";
   const progressToNext = ((xp % XP_PER_LEVEL) / XP_PER_LEVEL) * 100;
+
+  const placementReadiness = [
+    { label: "Resume", value: Math.min(100, (statsSafe(profile?.bio) + statsSafe(profile?.linkedin_url) + statsSafe(profile?.github_url) + statsSafe(profile?.college)) * 25), icon: FileText },
+    { label: "DSA", value: Math.min(100, (todayCounts?.subs ?? 0) * 35 + xp / 30), icon: Code2 },
+    { label: "Projects", value: Math.min(100, (profile?.github_url ? 35 : 0) + (todayCounts?.posts ?? 0) * 20 + xp / 40), icon: Laptop },
+    { label: "LinkedIn", value: Math.min(100, (profile?.linkedin_url ? 60 : 0) + (todayCounts?.posts ?? 0) * 10), icon: Linkedin },
+    { label: "Networking", value: Math.min(100, ((profile?.skills?.length ?? 0) * 8) + (todayCounts?.comments ?? 0) * 12), icon: Network },
+    { label: "Mock Interviews", value: Math.min(100, xp / 35), icon: Briefcase },
+  ];
+  const overallReadiness = Math.round(
+    placementReadiness.reduce((sum, item) => sum + item.value, 0) / placementReadiness.length,
+  );
 
   const missions = [
     {
@@ -199,8 +279,8 @@ function Dashboard() {
             <p className="text-sm text-primary-foreground/80">{greeting()},</p>
             <h1 className="mt-1 text-3xl sm:text-4xl font-bold">{name} 👋</h1>
             <p className="mt-2 text-primary-foreground/85 max-w-lg">
-              You're on level {level} with {xp.toLocaleString()} XP. Keep shipping — every action
-              counts.
+              You're a Level {level} {levelName} with {xp.toLocaleString()} XP. Every point should
+              represent employability progress.
             </p>
           </div>
           <div className="flex gap-3">
@@ -216,9 +296,9 @@ function Dashboard() {
         <StatCard
           icon={Trophy}
           label="Level"
-          value={level.toString()}
+          value={`${level}`}
           tone="accent"
-          sub={`${Math.round(progressToNext)}% to next`}
+          sub={levelName}
           progress={progressToNext}
         />
         <StatCard icon={Flame} label="Day streak" value={streak.toString()} tone="destructive" />
@@ -235,7 +315,7 @@ function Dashboard() {
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Target className="h-5 w-5 text-primary" /> Today's missions
+               <Target className="h-5 w-5 text-primary" /> Today's quest
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -258,33 +338,99 @@ function Dashboard() {
                 </Badge>
               </div>
             ))}
+            <div className="rounded-lg border bg-muted/30 p-3">
+              <div className="flex items-center justify-between text-sm mb-2">
+                <span className="font-medium">Quest completion</span>
+                <span className="text-primary font-semibold">
+                  {Math.round((missions.filter((m) => m.done).length / missions.length) * 100)}%
+                </span>
+              </div>
+              <Progress value={(missions.filter((m) => m.done).length / missions.length) * 100} className="h-2" />
+            </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Trophy className="h-5 w-5 text-accent" /> Your progress
+              <Trophy className="h-5 w-5 text-accent" /> Placement readiness
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="rounded-lg border bg-muted/30 p-4">
+              <div className="flex items-center justify-between text-sm mb-2">
+                <span className="font-semibold">Overall readiness</span>
+                <span className="font-bold text-primary">{overallReadiness}%</span>
+              </div>
+              <Progress value={overallReadiness} className="h-2" />
+            </div>
+            <div className="space-y-3">
+              {placementReadiness.map((item) => (
+                <div key={item.label}>
+                  <div className="mb-1 flex items-center justify-between text-xs">
+                    <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                      <item.icon className="h-3.5 w-3.5" /> {item.label}
+                    </span>
+                    <span className="font-medium">{Math.round(item.value)}%</span>
+                  </div>
+                  <Progress value={item.value} className="h-1.5" />
+                </div>
+              ))}
+            </div>
             <div>
               <div className="flex justify-between text-sm mb-2">
-                <span className="text-muted-foreground">Level {level}</span>
+                <span className="text-muted-foreground">Level {level} · {levelName}</span>
                 <span className="font-medium">
                   {xp % XP_PER_LEVEL} / {XP_PER_LEVEL} XP
                 </span>
               </div>
               <Progress value={progressToNext} className="h-2" />
             </div>
-            <div className="rounded-lg border border-dashed p-4 text-center">
-              <p className="text-sm text-muted-foreground">
-                Post, reply, and ship challenges to climb the leaderboard.
-              </p>
+            <div className="rounded-lg border border-dashed p-4">
+              <p className="text-sm font-medium">Badges</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {(earnedBadges ?? []).length === 0 ? (
+                  <span className="text-xs text-muted-foreground">Earn badges through helpful, consistent work.</span>
+                ) : (
+                  earnedBadges?.map((b, index) => (
+                    <Badge key={`${b.badges?.name}-${index}`} variant="secondary">
+                      {b.badges?.icon} {b.badges?.name}
+                    </Badge>
+                  ))
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BookOpen className="h-5 w-5 text-primary" /> Habit streaks
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            {[
+              ["dsa", "DSA"],
+              ["assignment", "Assignment"],
+              ["learning", "Learning"],
+              ["community_help", "Community help"],
+              ["build", "Build"],
+            ].map(([key, label]) => {
+              const row = streaks?.find((s) => s.streak_type === key);
+              return (
+                <div key={key} className="rounded-lg border bg-muted/30 p-3 text-center">
+                  <div className="text-lg">🔥</div>
+                  <div className="mt-1 text-2xl font-bold">{row?.current_count ?? 0}</div>
+                  <div className="text-xs text-muted-foreground">{label} streak</div>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
@@ -382,6 +528,10 @@ function Dashboard() {
       </Card>
     </div>
   );
+}
+
+function statsSafe(value: unknown) {
+  return typeof value === "string" && value.trim() ? 1 : 0;
 }
 
 function PulseStat({
