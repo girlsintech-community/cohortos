@@ -8,7 +8,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Loader2, MessageSquare, Send, ChevronDown, ChevronUp, Check, X } from "lucide-react";
+import {
+  Loader2,
+  MessageSquare,
+  Send,
+  ChevronDown,
+  ChevronUp,
+  Check,
+  X,
+  ThumbsUp,
+  BadgeCheck,
+  Rocket,
+  Lightbulb,
+} from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 
@@ -192,6 +204,12 @@ function DiscussionCard({
               {d.tag && <Badge variant="secondary">{d.tag}</Badge>}
             </div>
             <p className="mt-2 text-sm whitespace-pre-wrap break-words">{d.body}</p>
+            <ReactionBar
+              targetType="discussion"
+              targetId={d.id}
+              receiverId={d.author_id}
+              currentUserId={Route.useRouteContext().user.id}
+            />
             <button
               onClick={onToggle}
               className="mt-3 inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
@@ -393,6 +411,12 @@ function RepliesPanel({ discussionId }: { discussionId: string }) {
                     {renderMentions(r.body)}
                   </p>
                 )}
+                <ReactionBar
+                  targetType="discussion_reply"
+                  targetId={r.id}
+                  receiverId={r.author_id}
+                  currentUserId={user.id}
+                />
               </div>
             </div>
           );
@@ -409,6 +433,94 @@ function RepliesPanel({ discussionId }: { discussionId: string }) {
           <Send className="h-4 w-4" />
         </Button>
       </div>
+    </div>
+  );
+}
+
+const QUALITY_REACTIONS = [
+  { type: "helpful", label: "Helpful", icon: ThumbsUp },
+  { type: "great_explanation", label: "Great", icon: BadgeCheck },
+  { type: "motivated_me", label: "Motivated", icon: Rocket },
+  { type: "clever_solution", label: "Clever", icon: Lightbulb },
+] as const;
+
+function ReactionBar({
+  targetType,
+  targetId,
+  receiverId,
+  currentUserId,
+}: {
+  targetType: "post_comment" | "discussion_reply" | "discussion";
+  targetId: string;
+  receiverId: string;
+  currentUserId: string;
+}) {
+  const qc = useQueryClient();
+  const disabled = receiverId === currentUserId;
+  const { data } = useQuery({
+    queryKey: ["qualityReactions", targetType, targetId],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("community_reactions")
+        .select("reaction_type, giver_id")
+        .eq("target_type", targetType)
+        .eq("target_id", targetId);
+      if (error) throw error;
+      return data as Array<{ reaction_type: string; giver_id: string }>;
+    },
+  });
+
+  const react = useMutation({
+    mutationFn: async (reactionType: string) => {
+      if (disabled) return;
+      const existing = (data ?? []).some(
+        (r) => r.reaction_type === reactionType && r.giver_id === currentUserId,
+      );
+      if (existing) {
+        const { error } = await (supabase as any)
+          .from("community_reactions")
+          .delete()
+          .eq("target_type", targetType)
+          .eq("target_id", targetId)
+          .eq("giver_id", currentUserId)
+          .eq("reaction_type", reactionType);
+        if (error) throw error;
+      } else {
+        const { error } = await (supabase as any).from("community_reactions").insert({
+          target_type: targetType,
+          target_id: targetId,
+          receiver_id: receiverId,
+          giver_id: currentUserId,
+          reaction_type: reactionType,
+        });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["qualityReactions", targetType, targetId] }),
+    onError: (e: Error) => toast.error("Reaction failed", { description: e.message }),
+  });
+
+  return (
+    <div className="mt-2 flex flex-wrap gap-1.5">
+      {QUALITY_REACTIONS.map((r) => {
+        const count = (data ?? []).filter((x) => x.reaction_type === r.type).length;
+        const mine = (data ?? []).some(
+          (x) => x.reaction_type === r.type && x.giver_id === currentUserId,
+        );
+        return (
+          <button
+            key={r.type}
+            type="button"
+            disabled={disabled || react.isPending}
+            onClick={() => react.mutate(r.type)}
+            className={`inline-flex h-7 items-center gap-1 rounded-md border px-2 text-[10px] transition disabled:opacity-50 ${
+              mine ? "bg-primary/10 text-primary border-primary/30" : "text-muted-foreground hover:bg-muted"
+            }`}
+          >
+            <r.icon className="h-3 w-3" /> {r.label} {count > 0 ? count : ""}
+          </button>
+        );
+      })}
     </div>
   );
 }
