@@ -43,8 +43,9 @@ import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useState, useRef, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, isSunday as isSundayFn, format as formatDate, startOfWeek, endOfWeek } from "date-fns";
 import { toast } from "sonner";
+import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
