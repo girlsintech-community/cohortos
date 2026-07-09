@@ -18,6 +18,7 @@ import { Route as AuthenticatedResourcesRouteImport } from './routes/_authentica
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedPodsRouteImport } from './routes/_authenticated/pods'
 import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
+import { Route as AuthenticatedLibraryRouteImport } from './routes/_authenticated/library'
 import { Route as AuthenticatedLeaderboardRouteImport } from './routes/_authenticated/leaderboard'
 import { Route as AuthenticatedFeedRouteImport } from './routes/_authenticated/feed'
 import { Route as AuthenticatedDiscussionsRouteImport } from './routes/_authenticated/discussions'
@@ -71,6 +72,11 @@ const AuthenticatedOnboardingRoute = AuthenticatedOnboardingRouteImport.update({
   path: '/onboarding',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedLibraryRoute = AuthenticatedLibraryRouteImport.update({
+  id: '/library',
+  path: '/library',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedLeaderboardRoute =
   AuthenticatedLeaderboardRouteImport.update({
     id: '/leaderboard',
@@ -119,6 +125,7 @@ export interface FileRoutesByFullPath {
   '/discussions': typeof AuthenticatedDiscussionsRoute
   '/feed': typeof AuthenticatedFeedRoute
   '/leaderboard': typeof AuthenticatedLeaderboardRoute
+  '/library': typeof AuthenticatedLibraryRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/pods': typeof AuthenticatedPodsRoute
   '/profile': typeof AuthenticatedProfileRoute
@@ -136,6 +143,7 @@ export interface FileRoutesByTo {
   '/discussions': typeof AuthenticatedDiscussionsRoute
   '/feed': typeof AuthenticatedFeedRoute
   '/leaderboard': typeof AuthenticatedLeaderboardRoute
+  '/library': typeof AuthenticatedLibraryRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/pods': typeof AuthenticatedPodsRoute
   '/profile': typeof AuthenticatedProfileRoute
@@ -155,6 +163,7 @@ export interface FileRoutesById {
   '/_authenticated/discussions': typeof AuthenticatedDiscussionsRoute
   '/_authenticated/feed': typeof AuthenticatedFeedRoute
   '/_authenticated/leaderboard': typeof AuthenticatedLeaderboardRoute
+  '/_authenticated/library': typeof AuthenticatedLibraryRoute
   '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
   '/_authenticated/pods': typeof AuthenticatedPodsRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
@@ -174,6 +183,7 @@ export interface FileRouteTypes {
     | '/discussions'
     | '/feed'
     | '/leaderboard'
+    | '/library'
     | '/onboarding'
     | '/pods'
     | '/profile'
@@ -191,6 +201,7 @@ export interface FileRouteTypes {
     | '/discussions'
     | '/feed'
     | '/leaderboard'
+    | '/library'
     | '/onboarding'
     | '/pods'
     | '/profile'
@@ -209,6 +220,7 @@ export interface FileRouteTypes {
     | '/_authenticated/discussions'
     | '/_authenticated/feed'
     | '/_authenticated/leaderboard'
+    | '/_authenticated/library'
     | '/_authenticated/onboarding'
     | '/_authenticated/pods'
     | '/_authenticated/profile'
@@ -289,6 +301,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOnboardingRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/library': {
+      id: '/_authenticated/library'
+      path: '/library'
+      fullPath: '/library'
+      preLoaderRoute: typeof AuthenticatedLibraryRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/leaderboard': {
       id: '/_authenticated/leaderboard'
       path: '/leaderboard'
@@ -348,6 +367,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDiscussionsRoute: typeof AuthenticatedDiscussionsRoute
   AuthenticatedFeedRoute: typeof AuthenticatedFeedRoute
   AuthenticatedLeaderboardRoute: typeof AuthenticatedLeaderboardRoute
+  AuthenticatedLibraryRoute: typeof AuthenticatedLibraryRoute
   AuthenticatedOnboardingRoute: typeof AuthenticatedOnboardingRoute
   AuthenticatedPodsRoute: typeof AuthenticatedPodsRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
@@ -363,6 +383,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDiscussionsRoute: AuthenticatedDiscussionsRoute,
   AuthenticatedFeedRoute: AuthenticatedFeedRoute,
   AuthenticatedLeaderboardRoute: AuthenticatedLeaderboardRoute,
+  AuthenticatedLibraryRoute: AuthenticatedLibraryRoute,
   AuthenticatedOnboardingRoute: AuthenticatedOnboardingRoute,
   AuthenticatedPodsRoute: AuthenticatedPodsRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,

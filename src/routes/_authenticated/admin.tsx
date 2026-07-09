@@ -34,6 +34,10 @@ import {
   UsersRound,
   Shield,
   Plus,
+  Clock,
+  Video,
+  Calendar,
+  Play,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -78,6 +82,9 @@ function AdminPage() {
           <TabsTrigger value="allowlist">Allowlist</TabsTrigger>
           <TabsTrigger value="resources">Resources</TabsTrigger>
           <TabsTrigger value="feedback">Feedback & Bugs</TabsTrigger>
+          <TabsTrigger value="masterclasses">Masterclasses</TabsTrigger>
+          <TabsTrigger value="cohort_todos">Cohort Tasks</TabsTrigger>
+          <TabsTrigger value="screentime">Screen Time</TabsTrigger>
         </TabsList>
         <TabsContent value="overview" className="mt-4">
           <OverviewPanel />
@@ -102,6 +109,15 @@ function AdminPage() {
         </TabsContent>
         <TabsContent value="feedback" className="mt-4">
           <FeedbackPanel />
+        </TabsContent>
+        <TabsContent value="masterclasses" className="mt-4">
+          <MasterclassesPanel />
+        </TabsContent>
+        <TabsContent value="cohort_todos" className="mt-4">
+          <CohortTodosPanel />
+        </TabsContent>
+        <TabsContent value="screentime" className="mt-4">
+          <ScreenTimePanel />
         </TabsContent>
       </Tabs>
     </div>
@@ -1718,3 +1734,481 @@ function FeedbackPanel() {
     </div>
   );
 }
+
+// ─── Masterclasses Management Panel ───
+function MasterclassesPanel() {
+  const qc = useQueryClient();
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [watchLink, setWatchLink] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
+  const [speakerName, setSpeakerName] = useState("");
+  const [speakerLinkedin, setSpeakerLinkedin] = useState("");
+  const [speakerDesignation, setSpeakerDesignation] = useState("");
+  const [speakerBio, setSpeakerBio] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const { data: masterclasses, isLoading } = useQuery({
+    queryKey: ["admin", "masterclasses"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("masterclasses")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const create = useMutation({
+    mutationFn: async () => {
+      if (!title.trim() || !watchLink.trim() || !speakerName.trim()) {
+        throw new Error("Title, Watch Link, and Speaker Name are required.");
+      }
+      setBusy(true);
+      const { error } = await supabase.from("masterclasses").insert({
+        title: title.trim(),
+        description: description.trim() || null,
+        watch_link: watchLink.trim(),
+        image_url: imageUrl.trim() || null,
+        speaker_name: speakerName.trim(),
+        speaker_linkedin: speakerLinkedin.trim() || null,
+        speaker_designation: speakerDesignation.trim() || null,
+        speaker_bio: speakerBio.trim() || null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Masterclass created successfully!");
+      setTitle("");
+      setDescription("");
+      setWatchLink("");
+      setImageUrl("");
+      setSpeakerName("");
+      setSpeakerLinkedin("");
+      setSpeakerDesignation("");
+      setSpeakerBio("");
+      qc.invalidateQueries({ queryKey: ["admin", "masterclasses"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+    onSettled: () => setBusy(false),
+  });
+
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("masterclasses").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Masterclass deleted");
+      qc.invalidateQueries({ queryKey: ["admin", "masterclasses"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Add New Masterclass recording</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>Session Title *</Label>
+              <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="E.g. System Design Basics" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Watch Link *</Label>
+              <Input type="url" value={watchLink} onChange={(e) => setWatchLink(e.target.value)} placeholder="https://youtube.com/..." />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Thumbnail Image URL (Optional)</Label>
+              <Input type="url" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://..." />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Speaker Name *</Label>
+              <Input value={speakerName} onChange={(e) => setSpeakerName(e.target.value)} placeholder="E.g. Jane Doe" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Speaker Designation</Label>
+              <Input value={speakerDesignation} onChange={(e) => setSpeakerDesignation(e.target.value)} placeholder="E.g. Staff Engineer at Google" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Speaker LinkedIn URL</Label>
+              <Input type="url" value={speakerLinkedin} onChange={(e) => setSpeakerLinkedin(e.target.value)} placeholder="https://linkedin.com/in/..." />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Session Description</Label>
+            <Textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What was covered in this masterclass?" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Speaker Bio</Label>
+            <Textarea rows={3} value={speakerBio} onChange={(e) => setSpeakerBio(e.target.value)} placeholder="Brief speaker introduction..." />
+          </div>
+          <Button disabled={busy} onClick={() => create.mutate()} className="w-full text-white" style={{ background: "var(--gradient-primary)" }}>
+            {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Create Masterclass
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Existing Masterclasses ({(masterclasses ?? []).length})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          ) : (masterclasses ?? []).length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4">No masterclass recordings uploaded yet.</p>
+          ) : (
+            <div className="divide-y space-y-3">
+              {(masterclasses ?? []).map((mc: any) => (
+                <div key={mc.id} className="flex justify-between items-start gap-4 pt-3 first:pt-0">
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <p className="font-semibold text-sm">{mc.title}</p>
+                    <p className="text-xs text-muted-foreground">Speaker: <strong>{mc.speaker_name}</strong> {mc.speaker_designation ? `(${mc.speaker_designation})` : ""}</p>
+                    <a href={mc.watch_link} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline inline-flex items-center gap-1">
+                      <Play className="h-3 w-3" /> Watch Link
+                    </a>
+                  </div>
+                  <Button size="sm" variant="ghost" onClick={() => { if(confirm("Delete this masterclass?")) remove.mutate(mc.id); }} className="hover:bg-destructive/10 text-muted-foreground hover:text-destructive shrink-0">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ─── Cohort To-Dos Management Panel ───
+function CohortTodosPanel() {
+  const qc = useQueryClient();
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const { data: todos, isLoading } = useQuery({
+    queryKey: ["admin", "cohort-todos"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("cohort_todos")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const create = useMutation({
+    mutationFn: async () => {
+      if (!title.trim()) throw new Error("Task Title is required.");
+      setBusy(true);
+      const { error } = await supabase.from("cohort_todos").insert({
+        title: title.trim(),
+        description: description.trim() || null,
+        due_date: dueDate || null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Cohort To-Do created!");
+      setTitle("");
+      setDescription("");
+      setDueDate("");
+      qc.invalidateQueries({ queryKey: ["admin", "cohort-todos"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+    onSettled: () => setBusy(false),
+  });
+
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("cohort_todos").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Task deleted");
+      qc.invalidateQueries({ queryKey: ["admin", "cohort-todos"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Assign Cohort Task</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>Task Title *</Label>
+              <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="E.g. Attend Masterclass & Take Notes" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Due Date (Optional)</Label>
+              <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Description</Label>
+            <Textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What details should mentees know about this task?" />
+          </div>
+          <Button disabled={busy} onClick={() => create.mutate()} className="w-full text-white" style={{ background: "var(--gradient-primary)" }}>
+            {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Create Task
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Active Cohort Tasks ({(todos ?? []).length})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          ) : (todos ?? []).length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4">No active cohort tasks.</p>
+          ) : (
+            <div className="divide-y space-y-3">
+              {(todos ?? []).map((t: any) => (
+                <div key={t.id} className="flex justify-between items-start gap-4 pt-3 first:pt-0">
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <p className="font-semibold text-sm">{t.title}</p>
+                    {t.description && <p className="text-xs text-muted-foreground">{t.description}</p>}
+                    {t.due_date && (
+                      <span className="inline-block text-[10px] text-red-600 bg-red-50 border border-red-100 rounded px-1.5 py-0.5 font-bold uppercase mt-1">
+                        Due: {new Date(t.due_date).toLocaleDateString()}
+                      </span>
+                    )}
+                  </div>
+                  <Button size="sm" variant="ghost" onClick={() => { if(confirm("Delete this cohort task?")) remove.mutate(t.id); }} className="hover:bg-destructive/10 text-muted-foreground hover:text-destructive shrink-0">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ─── Screen Time Analytics Panel ───
+function ScreenTimePanel() {
+  const { data: times, isLoading } = useQuery({
+    queryKey: ["admin", "screentime"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_screen_time")
+        .select(`
+          seconds_spent,
+          date,
+          user_id,
+          profiles:user_id(display_name, username)
+        `);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="grid place-items-center py-10">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Process data
+  const userMap: Record<string, { display_name: string; username: string; today: number; lifetime: number }> = {};
+  const todayStr = new Date().toISOString().split("T")[0];
+  let totalCohortSeconds = 0;
+  let todayCohortSeconds = 0;
+
+  (times ?? []).forEach((row: any) => {
+    const uid = row.user_id;
+    const name = row.profiles?.display_name || "Unknown User";
+    const username = row.profiles?.username || "unknown";
+    const sec = row.seconds_spent || 0;
+
+    totalCohortSeconds += sec;
+    if (row.date === todayStr) {
+      todayCohortSeconds += sec;
+    }
+
+    if (!userMap[uid]) {
+      userMap[uid] = { display_name: name, username: username, today: 0, lifetime: 0 };
+    }
+    userMap[uid].lifetime += sec;
+    if (row.date === todayStr) {
+      userMap[uid].today += sec;
+    }
+  });
+
+  const usersList = Object.values(userMap)
+    .map(u => ({
+      ...u,
+      todayMinutes: Math.round(u.today / 60),
+      lifetimeMinutes: Math.round(u.lifetime / 60),
+      lifetimeHours: parseFloat((u.lifetime / 3600).toFixed(1))
+    }))
+    .sort((a, b) => b.lifetimeMinutes - a.lifetimeMinutes);
+
+  // Group by date for line/area chart of last 7 days
+  const dateMap: Record<string, number> = {};
+  (times ?? []).forEach((row: any) => {
+    const d = row.date;
+    dateMap[d] = (dateMap[d] || 0) + (row.seconds_spent || 0);
+  });
+
+  const chartData = Object.entries(dateMap)
+    .map(([date, sec]) => ({
+      date: new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      minutes: Math.round(sec / 60)
+    }))
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    .slice(-7); // Last 7 active days
+
+  const barData = usersList.slice(0, 8).map(u => ({
+    name: u.display_name,
+    minutes: u.lifetimeMinutes
+  }));
+
+  return (
+    <div className="space-y-6">
+      {/* KPI Cards */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardContent className="pt-4">
+            <span className="text-xs font-bold text-muted-foreground uppercase">Total Cohort Time</span>
+            <p className="text-3xl font-extrabold text-foreground mt-1">
+              {Math.round(totalCohortSeconds / 3600)} hrs
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-1">Accumulated app-open time</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <span className="text-xs font-bold text-muted-foreground uppercase">Active Time Today</span>
+            <p className="text-3xl font-extrabold text-primary mt-1">
+              {Math.round(todayCohortSeconds / 60)} mins
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-1">Across all logged-in members</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <span className="text-xs font-bold text-muted-foreground uppercase">Active Members Today</span>
+            <p className="text-3xl font-extrabold text-foreground mt-1">
+              {Object.values(userMap).filter(u => u.today > 0).length}
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-1">Members with session heartbeat pings</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Visualizations */}
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Cohort Engagement (Past 7 Active Days)</CardTitle>
+          </CardHeader>
+          <CardContent className="h-64">
+            {chartData.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-20">Not enough activity data to plot.</p>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData}>
+                  <defs>
+                    <linearGradient id="colorMinutes" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--color-primary, #6366f1)" stopOpacity={0.4}/>
+                      <stop offset="95%" stopColor="var(--color-primary, #6366f1)" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="date" fontSize={10} tickLine={false} />
+                  <YAxis fontSize={10} tickLine={false} label={{ value: 'Minutes', angle: -90, position: 'insideLeft', fontSize: 10 }} />
+                  <Tooltip contentStyle={{ fontSize: 11, borderRadius: 8 }} />
+                  <Area type="monotone" dataKey="minutes" stroke="var(--color-primary, #6366f1)" strokeWidth={2} fillOpacity={1} fill="url(#colorMinutes)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Top Active Members (Lifetime Minutes)</CardTitle>
+          </CardHeader>
+          <CardContent className="h-64">
+            {barData.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-20">No user session logs found.</p>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={barData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="name" fontSize={10} tickLine={false} />
+                  <YAxis fontSize={10} tickLine={false} label={{ value: 'Minutes', angle: -90, position: 'insideLeft', fontSize: 10 }} />
+                  <Tooltip contentStyle={{ fontSize: 11, borderRadius: 8 }} />
+                  <Bar dataKey="minutes" fill="#a78bfa" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Screen Time Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Member Session Breakdown</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b text-muted-foreground font-semibold">
+                  <th className="py-2.5">Member</th>
+                  <th className="py-2.5">Username</th>
+                  <th className="py-2.5 text-right">Time Spent Today</th>
+                  <th className="py-2.5 text-right">Lifetime Time</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {usersList.map((u, idx) => (
+                  <tr key={idx} className="hover:bg-muted/10">
+                    <td className="py-2.5 font-medium">{u.display_name}</td>
+                    <td className="py-2.5 text-muted-foreground">@{u.username}</td>
+                    <td className="py-2.5 text-right font-medium text-primary">
+                      {u.todayMinutes > 0 ? `${u.todayMinutes}m` : "—"}
+                    </td>
+                    <td className="py-2.5 text-right font-medium text-foreground">
+                      {u.lifetimeMinutes > 60 ? `${u.lifetimeHours}h` : `${u.lifetimeMinutes}m`}
+                    </td>
+                  </tr>
+                ))}
+                {usersList.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="py-8 text-center text-muted-foreground">
+                      No user screen time recorded yet. Heartbeats will update automatically as users browse.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
