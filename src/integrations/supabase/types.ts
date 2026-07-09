@@ -14,38 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      feedback_reports: {
-        Row: {
-          created_at: string
-          id: string
-          message: string
-          type: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          message: string
-          type: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          message?: string
-          type?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "feedback_reports_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
       allowed_emails: {
         Row: {
           added_by: string | null
@@ -98,10 +66,8 @@ export type Database = {
         Row: {
           challenge_id: string
           created_at: string
-          feedback: string | null
           id: string
           notes: string | null
-          screenshot_url: string | null
           solution_url: string | null
           status: string
           user_id: string
@@ -109,10 +75,8 @@ export type Database = {
         Insert: {
           challenge_id: string
           created_at?: string
-          feedback?: string | null
           id?: string
           notes?: string | null
-          screenshot_url?: string | null
           solution_url?: string | null
           status?: string
           user_id: string
@@ -120,10 +84,8 @@ export type Database = {
         Update: {
           challenge_id?: string
           created_at?: string
-          feedback?: string | null
           id?: string
           notes?: string | null
-          screenshot_url?: string | null
           solution_url?: string | null
           status?: string
           user_id?: string
@@ -453,8 +415,6 @@ export type Database = {
           content: string
           created_at: string
           id: string
-          image_url: string | null
-          link_url: string | null
           pod_id: string
         }
         Insert: {
@@ -462,8 +422,6 @@ export type Database = {
           content: string
           created_at?: string
           id?: string
-          image_url?: string | null
-          link_url?: string | null
           pod_id: string
         }
         Update: {
@@ -471,8 +429,6 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
-          image_url?: string | null
-          link_url?: string | null
           pod_id?: string
         }
         Relationships: [
