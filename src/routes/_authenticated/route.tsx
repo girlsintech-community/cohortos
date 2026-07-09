@@ -1477,7 +1477,7 @@ function AuthedLayout() {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       const finalElapsed = Math.round((Date.now() - activeStartTime) / 1000);
       if (finalElapsed > 0) {
-        supabase.rpc("increment_screen_time", { seconds_to_add: finalElapsed }).catch(() => {});
+        void Promise.resolve(supabase.rpc("increment_screen_time", { seconds_to_add: finalElapsed })).catch(() => {});
       }
     };
   }, [user?.id]);
