@@ -1539,9 +1539,11 @@ function AuthedLayout() {
                   </Link>
                 );
               })}
+            </nav>
+            <div className="flex items-center gap-1 shrink-0">
               <NotificationBell userId={user.id} />
               <SettingsMenu userId={user.id} signOut={signOut} />
-            </nav>
+            </div>
           </div>
         </header>
         <main className="mx-auto max-w-6xl px-4 py-8">
