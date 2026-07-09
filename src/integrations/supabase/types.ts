@@ -14,38 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      feedback_reports: {
-        Row: {
-          created_at: string
-          id: string
-          message: string
-          type: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          message: string
-          type: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          message?: string
-          type?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "feedback_reports_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
       allowed_emails: {
         Row: {
           added_by: string | null
@@ -98,7 +66,6 @@ export type Database = {
         Row: {
           challenge_id: string
           created_at: string
-          feedback: string | null
           id: string
           notes: string | null
           screenshot_url: string | null
@@ -109,7 +76,6 @@ export type Database = {
         Insert: {
           challenge_id: string
           created_at?: string
-          feedback?: string | null
           id?: string
           notes?: string | null
           screenshot_url?: string | null
@@ -120,7 +86,6 @@ export type Database = {
         Update: {
           challenge_id?: string
           created_at?: string
-          feedback?: string | null
           id?: string
           notes?: string | null
           screenshot_url?: string | null
@@ -175,6 +140,30 @@ export type Database = {
           link?: string | null
           title?: string
           xp_reward?: number
+        }
+        Relationships: []
+      }
+      cohort_todos: {
+        Row: {
+          created_at: string
+          description: string | null
+          due_date: string | null
+          id: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          title?: string
         }
         Relationships: []
       }
@@ -300,6 +289,72 @@ export type Database = {
           },
         ]
       }
+      feedback_reports: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          status: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          status?: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          status?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      masterclasses: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string | null
+          speaker_bio: string | null
+          speaker_designation: string | null
+          speaker_linkedin: string | null
+          speaker_name: string
+          title: string
+          watch_link: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          speaker_bio?: string | null
+          speaker_designation?: string | null
+          speaker_linkedin?: string | null
+          speaker_name: string
+          title: string
+          watch_link: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          speaker_bio?: string | null
+          speaker_designation?: string | null
+          speaker_linkedin?: string | null
+          speaker_name?: string
+          title?: string
+          watch_link?: string
+        }
+        Relationships: []
+      }
       mentor_appreciations: {
         Row: {
           card_type: string
@@ -377,6 +432,30 @@ export type Database = {
           link?: string | null
           title?: string
           type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      personal_todos: {
+        Row: {
+          completed: boolean
+          created_at: string
+          id: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          completed?: boolean
+          created_at?: string
+          id?: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          completed?: boolean
+          created_at?: string
+          id?: string
+          title?: string
           user_id?: string
         }
         Relationships: []
@@ -865,6 +944,33 @@ export type Database = {
           },
         ]
       }
+      user_notes: {
+        Row: {
+          content: string | null
+          created_at: string
+          id: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -882,6 +988,27 @@ export type Database = {
           created_at?: string
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_screen_time: {
+        Row: {
+          date: string
+          id: string
+          seconds_spent: number
+          user_id: string
+        }
+        Insert: {
+          date?: string
+          id?: string
+          seconds_spent?: number
+          user_id: string
+        }
+        Update: {
+          date?: string
+          id?: string
+          seconds_spent?: number
           user_id?: string
         }
         Relationships: []
@@ -920,6 +1047,35 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_todo_completions: {
+        Row: {
+          completed_at: string
+          id: string
+          todo_id: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string
+          id?: string
+          todo_id: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string
+          id?: string
+          todo_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_todo_completions_todo_id_fkey"
+            columns: ["todo_id"]
+            isOneToOne: false
+            referencedRelation: "cohort_todos"
             referencedColumns: ["id"]
           },
         ]
@@ -981,6 +1137,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      increment_screen_time: {
+        Args: { seconds_to_add: number }
+        Returns: undefined
       }
       is_email_allowed: { Args: { _email: string }; Returns: boolean }
       is_pod_member: {

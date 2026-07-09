@@ -43,8 +43,9 @@ import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useState, useRef, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, isSunday as isSundayFn, format as formatDate, startOfWeek, endOfWeek } from "date-fns";
 import { toast } from "sonner";
+import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -556,6 +557,39 @@ function SettingsMenu({ userId, signOut }: { userId: string; signOut: () => void
     }
     toast.success(checked ? "High Contrast mode enabled" : "High Contrast mode disabled");
   }
+
+  // Weekly wrap: is today Sunday?
+  const isSunday = isSundayFn(new Date());
+
+  // Weekly wrap stats (last 7 days)
+  const { data: stats, isLoading: isLoadingStats } = useQuery({
+    queryKey: ["weeklyWrap", userId],
+    enabled: weeklyWrapOpen && wrapUnlocked,
+    queryFn: async () => {
+      const now = new Date();
+      const weekStart = startOfWeek(now, { weekStartsOn: 1 });
+      const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
+      const sinceISO = weekStart.toISOString();
+      const [postsRes, discRes, xpRes, badgesRes, chalRes, likesRes] = await Promise.all([
+        supabase.from("posts").select("id", { count: "exact", head: true }).eq("author_id", userId).gte("created_at", sinceISO),
+        supabase.from("discussions").select("id", { count: "exact", head: true }).eq("author_id", userId).gte("created_at", sinceISO),
+        supabase.from("xp_events").select("xp_amount").eq("user_id", userId).gte("created_at", sinceISO),
+        supabase.from("user_badges").select("id", { count: "exact", head: true }).eq("user_id", userId).gte("awarded_at", sinceISO),
+        supabase.from("challenge_submissions").select("id", { count: "exact", head: true }).eq("user_id", userId).gte("created_at", sinceISO),
+        supabase.from("post_likes").select("post_id, posts!inner(author_id)").eq("posts.author_id", userId).gte("created_at", sinceISO),
+      ]);
+      const xpSum = (xpRes.data ?? []).reduce((a: number, r: any) => a + (r.xp_amount ?? 0), 0);
+      return {
+        weekRangeText: `${formatDate(weekStart, "MMM d")} – ${formatDate(weekEnd, "MMM d, yyyy")}`,
+        posts: postsRes.count ?? 0,
+        discussions: discRes.count ?? 0,
+        xp: xpSum,
+        likesReceived: (likesRes.data ?? []).length,
+        badges: badgesRes.count ?? 0,
+        challenges: chalRes.count ?? 0,
+      };
+    },
+  });
 
   async function submitReport(type: "bug_report" | "feedback") {
     if (!message.trim()) return toast.error("Please enter a message");
@@ -1443,7 +1477,7 @@ function AuthedLayout() {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       const finalElapsed = Math.round((Date.now() - activeStartTime) / 1000);
       if (finalElapsed > 0) {
-        supabase.rpc("increment_screen_time", { seconds_to_add: finalElapsed }).catch(() => {});
+        void Promise.resolve(supabase.rpc("increment_screen_time", { seconds_to_add: finalElapsed })).catch(() => {});
       }
     };
   }, [user?.id]);
@@ -1505,9 +1539,11 @@ function AuthedLayout() {
                   </Link>
                 );
               })}
+            </nav>
+            <div className="flex items-center gap-1 shrink-0">
               <NotificationBell userId={user.id} />
               <SettingsMenu userId={user.id} signOut={signOut} />
-            </nav>
+            </div>
           </div>
         </header>
         <main className="mx-auto max-w-6xl px-4 py-8">
