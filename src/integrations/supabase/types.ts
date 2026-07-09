@@ -68,6 +68,7 @@ export type Database = {
           created_at: string
           id: string
           notes: string | null
+          screenshot_url: string | null
           solution_url: string | null
           status: string
           user_id: string
@@ -77,6 +78,7 @@ export type Database = {
           created_at?: string
           id?: string
           notes?: string | null
+          screenshot_url?: string | null
           solution_url?: string | null
           status?: string
           user_id: string
@@ -86,6 +88,7 @@ export type Database = {
           created_at?: string
           id?: string
           notes?: string | null
+          screenshot_url?: string | null
           solution_url?: string | null
           status?: string
           user_id?: string
@@ -262,6 +265,33 @@ export type Database = {
           },
         ]
       }
+      feedback_reports: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          status: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          status?: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          status?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       mentor_appreciations: {
         Row: {
           card_type: string
@@ -415,6 +445,8 @@ export type Database = {
           content: string
           created_at: string
           id: string
+          image_url: string | null
+          link_url: string | null
           pod_id: string
         }
         Insert: {
@@ -422,6 +454,8 @@ export type Database = {
           content: string
           created_at?: string
           id?: string
+          image_url?: string | null
+          link_url?: string | null
           pod_id: string
         }
         Update: {
@@ -429,6 +463,8 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
+          image_url?: string | null
+          link_url?: string | null
           pod_id?: string
         }
         Relationships: [
