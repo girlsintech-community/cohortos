@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,9 +23,20 @@ import {
   Network,
   Laptop,
   BookOpen,
+  Clock,
+  HelpCircle,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { toast } from "sonner";
 import { useState } from "react";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -46,6 +57,60 @@ const LEVEL_NAMES = [
 
 function Dashboard() {
   const { user } = Route.useRouteContext();
+  const [guideOpen, setGuideOpen] = useState(false);
+  const queryClient = useQueryClient();
+
+  const { data: cohortTasks } = useQuery({
+    queryKey: ["cohortTasks", user.id],
+    queryFn: async () => {
+      const { data: todos, error: todosErr } = await supabase
+        .from("cohort_todos")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (todosErr) throw todosErr;
+
+      const { data: completions, error: compErr } = await supabase
+        .from("user_todo_completions")
+        .select("todo_id")
+        .eq("user_id", user.id);
+      if (compErr) throw compErr;
+
+      const completedIds = new Set((completions ?? []).map((c) => c.todo_id));
+
+      return (todos ?? []).map((t) => ({
+        ...t,
+        completed: completedIds.has(t.id),
+      }));
+    },
+  });
+
+  const toggleTask = useMutation({
+    mutationFn: async ({ todoId, completed }: { todoId: string; completed: boolean }) => {
+      if (completed) {
+        const { error } = await supabase
+          .from("user_todo_completions")
+          .delete()
+          .eq("user_id", user.id)
+          .eq("todo_id", todoId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("user_todo_completions")
+          .insert({
+            user_id: user.id,
+            todo_id: todoId,
+          });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["cohortTasks", user.id] });
+      toast.success("Task updated!");
+    },
+    onError: (err: any) => {
+      toast.error("Failed to update task", { description: err.message });
+    },
+  });
 
   const { data: profile } = useQuery({
     queryKey: ["profile", user.id],
@@ -312,96 +377,202 @@ function Dashboard() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-               <Target className="h-5 w-5 text-primary" /> Today's quest
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {missions.map((m) => (
-              <div
-                key={m.label}
-                className="flex items-center justify-between rounded-lg border bg-muted/30 p-3"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="grid h-9 w-9 place-items-center rounded-lg bg-primary/10 text-primary">
-                    <m.icon className="h-4 w-4" />
+        <div className="lg:col-span-2 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                 <Target className="h-5 w-5 text-primary" /> Today's quest
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {missions.map((m) => (
+                <div
+                  key={m.label}
+                  className="flex items-center justify-between rounded-lg border bg-muted/30 p-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="grid h-9 w-9 place-items-center rounded-lg bg-primary/10 text-primary">
+                      <m.icon className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm">{m.label}</p>
+                      <p className="text-xs text-muted-foreground">+{m.xp} XP</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium text-sm">{m.label}</p>
-                    <p className="text-xs text-muted-foreground">+{m.xp} XP</p>
-                  </div>
-                </div>
-                <Badge variant={m.done ? "default" : "outline"} className="text-xs">
-                  {m.done ? "Done ✓" : "Pending"}
-                </Badge>
-              </div>
-            ))}
-            <div className="rounded-lg border bg-muted/30 p-3">
-              <div className="flex items-center justify-between text-sm mb-2">
-                <span className="font-medium">Quest completion</span>
-                <span className="text-primary font-semibold">
-                  {Math.round((missions.filter((m) => m.done).length / missions.length) * 100)}%
-                </span>
-              </div>
-              <Progress value={(missions.filter((m) => m.done).length / missions.length) * 100} className="h-2" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Trophy className="h-5 w-5 text-accent" /> Placement readiness
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="rounded-lg border bg-muted/30 p-4">
-              <div className="flex items-center justify-between text-sm mb-2">
-                <span className="font-semibold">Overall readiness</span>
-                <span className="font-bold text-primary">{overallReadiness}%</span>
-              </div>
-              <Progress value={overallReadiness} className="h-2" />
-            </div>
-            <div className="space-y-3">
-              {placementReadiness.map((item) => (
-                <div key={item.label}>
-                  <div className="mb-1 flex items-center justify-between text-xs">
-                    <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-                      <item.icon className="h-3.5 w-3.5" /> {item.label}
-                    </span>
-                    <span className="font-medium">{Math.round(item.value)}%</span>
-                  </div>
-                  <Progress value={item.value} className="h-1.5" />
+                  <Badge variant={m.done ? "default" : "outline"} className="text-xs">
+                    {m.done ? "Done ✓" : "Pending"}
+                  </Badge>
                 </div>
               ))}
-            </div>
-            <div>
-              <div className="flex justify-between text-sm mb-2">
-                <span className="text-muted-foreground">Level {level} · {levelName}</span>
-                <span className="font-medium">
-                  {xp % XP_PER_LEVEL} / {XP_PER_LEVEL} XP
-                </span>
+              <div className="rounded-lg border bg-muted/30 p-3">
+                <div className="flex items-center justify-between text-sm mb-2">
+                  <span className="font-medium">Quest completion</span>
+                  <span className="text-primary font-semibold">
+                    {Math.round((missions.filter((m) => m.done).length / missions.length) * 100)}%
+                  </span>
+                </div>
+                <Progress value={(missions.filter((m) => m.done).length / missions.length) * 100} className="h-2" />
               </div>
-              <Progress value={progressToNext} className="h-2" />
-            </div>
-            <div className="rounded-lg border border-dashed p-4">
-              <p className="text-sm font-medium">Badges</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {(earnedBadges ?? []).length === 0 ? (
-                  <span className="text-xs text-muted-foreground">Earn badges through helpful, consistent work.</span>
-                ) : (
-                  earnedBadges?.map((b, index) => (
-                    <Badge key={`${b.badges?.name}-${index}`} variant="secondary">
-                      {b.badges?.icon} {b.badges?.name}
-                    </Badge>
-                  ))
-                )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                 <Clock className="h-5 w-5 text-primary" /> Cohort Tasks
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {(cohortTasks ?? []).length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-6">No tasks assigned to the cohort yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {(cohortTasks ?? []).map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => toggleTask.mutate({ todoId: t.id, completed: t.completed })}
+                      disabled={toggleTask.isPending}
+                      className="flex items-start justify-between w-full rounded-lg border bg-muted/30 p-3 hover:bg-muted/50 transition text-left cursor-pointer"
+                    >
+                      <div className="flex items-start gap-3 min-w-0">
+                        <div className={`grid h-9 w-9 place-items-center rounded-lg shrink-0 ${t.completed ? 'bg-success/15 text-success' : 'bg-primary/10 text-primary'}`}>
+                          {t.completed ? <CheckCircle2 className="h-5 w-5" /> : <Clock className="h-5 w-5" />}
+                        </div>
+                        <div className="min-w-0">
+                          <p className={`font-medium text-sm truncate ${t.completed ? 'line-through text-muted-foreground' : ''}`}>{t.title}</p>
+                          {t.description && <p className="text-xs text-muted-foreground mt-0.5 whitespace-pre-wrap">{t.description}</p>}
+                          {t.due_date && (
+                            <span className="inline-block text-[10px] text-destructive bg-destructive/10 border border-destructive/20 rounded px-1.5 py-0.5 font-bold uppercase mt-1">
+                              Due: {new Date(t.due_date).toLocaleDateString()}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <Badge variant={t.completed ? "default" : "outline"} className={`text-xs ml-3 ${t.completed ? "bg-success text-success-foreground hover:bg-success/90" : ""}`}>
+                        {t.completed ? "Completed ✓" : "Mark Complete"}
+                      </Badge>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <div>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+              <CardTitle className="flex items-center gap-2">
+                <Trophy className="h-5 w-5 text-accent" /> Placement readiness
+              </CardTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full"
+                onClick={() => setGuideOpen(true)}
+                title="How is this calculated?"
+              >
+                <HelpCircle className="h-4 w-4" />
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="rounded-lg border bg-muted/30 p-4">
+                <div className="flex items-center justify-between text-sm mb-2">
+                  <span className="font-semibold">Overall readiness</span>
+                  <span className="font-bold text-primary">{overallReadiness}%</span>
+                </div>
+                <Progress value={overallReadiness} className="h-2" />
               </div>
-            </div>
-          </CardContent>
-        </Card>
+              <div className="space-y-3">
+                {placementReadiness.map((item) => (
+                  <div key={item.label}>
+                    <div className="mb-1 flex items-center justify-between text-xs">
+                      <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                        <item.icon className="h-3.5 w-3.5" /> {item.label}
+                      </span>
+                      <span className="font-medium">{Math.round(item.value)}%</span>
+                    </div>
+                    <Progress value={item.value} className="h-1.5" />
+                  </div>
+                ))}
+              </div>
+              <div>
+                <div className="flex justify-between text-sm mb-2">
+                  <span className="text-muted-foreground">Level {level} · {levelName}</span>
+                  <span className="font-medium">
+                    {xp % XP_PER_LEVEL} / {XP_PER_LEVEL} XP
+                  </span>
+                </div>
+                <Progress value={progressToNext} className="h-2" />
+              </div>
+              <div className="rounded-lg border border-dashed p-4">
+                <p className="text-sm font-medium">Badges</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {(earnedBadges ?? []).length === 0 ? (
+                    <span className="text-xs text-muted-foreground">Earn badges through helpful, consistent work.</span>
+                  ) : (
+                    earnedBadges?.map((b, index) => (
+                      <Badge key={`${b.badges?.name}-${index}`} variant="secondary">
+                        {b.badges?.icon} {b.badges?.name}
+                      </Badge>
+                    ))
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Dialog open={guideOpen} onOpenChange={setGuideOpen}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-lg font-bold">
+                  <Trophy className="h-5 w-5 text-accent" /> Placement Readiness Guide
+                </DialogTitle>
+                <DialogDescription className="text-xs">
+                  Your scores reflect key employability metrics. Here is how they are calculated and updated:
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-2 text-sm">
+                <div className="space-y-1">
+                  <p className="font-semibold text-primary">1. Resume (up to 100%)</p>
+                  <p className="text-xs text-muted-foreground">
+                    Completion of your profile details. Adds <strong>25%</strong> each for adding a <strong>Bio</strong>, <strong>LinkedIn URL</strong>, <strong>GitHub URL</strong>, and <strong>College</strong>.
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="font-semibold text-primary">2. DSA (up to 100%)</p>
+                  <p className="text-xs text-muted-foreground">
+                    Coding practice. Adds <strong>35%</strong> for each challenge submission today, plus a gradual increase based on your overall XP (XP / 30).
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="font-semibold text-primary">3. Projects (up to 100%)</p>
+                  <p className="text-xs text-muted-foreground">
+                    Development work. Adds <strong>35%</strong> if your <strong>GitHub URL</strong> is linked, <strong>20%</strong> for each feed update posted today, and scales with your overall XP (XP / 40).
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="font-semibold text-primary">4. LinkedIn (up to 100%)</p>
+                  <p className="text-xs text-muted-foreground">
+                    Professional branding. Adds <strong>60%</strong> if your <strong>LinkedIn URL</strong> is linked, plus <strong>10%</strong> for each feed update posted today.
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="font-semibold text-primary">5. Networking (up to 100%)</p>
+                  <p className="text-xs text-muted-foreground">
+                    Community interaction. Adds <strong>8%</strong> per listed skill (up to 12 skills), plus <strong>12%</strong> for each reply or comment posted today.
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="font-semibold text-primary">6. Mock Interviews (up to 100%)</p>
+                  <p className="text-xs text-muted-foreground">
+                    Preparation depth. Scales directly with your total XP (XP / 35). Gain XP by attending masterclasses, submitting challenges, and helping others!
+                  </p>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <Card>
