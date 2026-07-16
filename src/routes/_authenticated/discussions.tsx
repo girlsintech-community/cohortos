@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -26,6 +26,10 @@ import { formatDistanceToNow } from "date-fns";
 
 export const Route = createFileRoute("/_authenticated/discussions")({
   component: DiscussionsPage,
+  validateSearch: (search: Record<string, unknown>) => ({
+    discussion: typeof search.discussion === "string" ? search.discussion : undefined,
+    reply: typeof search.reply === "string" ? search.reply : undefined,
+  }),
 });
 
 type Discussion = {
@@ -41,6 +45,7 @@ type Discussion = {
 
 function DiscussionsPage() {
   const { user } = Route.useRouteContext();
+  const { discussion: focusDiscussionId } = Route.useSearch();
   const qc = useQueryClient();
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -61,6 +66,18 @@ function DiscussionsPage() {
       return data as unknown as Discussion[];
     },
   });
+
+  // Deep-link from a notification: open that discussion's replies and scroll to it.
+  useEffect(() => {
+    if (!focusDiscussionId || !discussions) return;
+    setOpenId(focusDiscussionId);
+    const el = document.getElementById(`discussion-${focusDiscussionId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("ring-2", "ring-primary");
+      setTimeout(() => el.classList.remove("ring-2", "ring-primary"), 2500);
+    }
+  }, [focusDiscussionId, discussions]);
 
   const create = useMutation({
     mutationFn: async () => {
@@ -166,7 +183,7 @@ function DiscussionCard({
   const initials = (d.profiles?.display_name || "?").slice(0, 2).toUpperCase();
   const replyCount = d.discussion_replies[0]?.count ?? 0;
   return (
-    <Card>
+    <Card id={`discussion-${d.id}`} className="scroll-mt-20 transition-shadow">
       <CardContent className="pt-5">
         <div className="flex gap-3">
           <Link to="/u/$id" params={{ id: d.author_id }}>

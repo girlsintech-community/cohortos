@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -37,6 +37,10 @@ import { formatDistanceToNow } from "date-fns";
 
 export const Route = createFileRoute("/_authenticated/feed")({
   component: FeedPage,
+  validateSearch: (search: Record<string, unknown>) => ({
+    post: typeof search.post === "string" ? search.post : undefined,
+    comment: typeof search.comment === "string" ? search.comment : undefined,
+  }),
 });
 
 const CATEGORIES = [
@@ -300,6 +304,7 @@ type Comment = {
 
 function FeedPage() {
   const { user } = Route.useRouteContext();
+  const { post: focusPostId } = Route.useSearch();
   const qc = useQueryClient();
   const [content, setContent] = useState("");
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -332,6 +337,18 @@ function FeedPage() {
     filterCategory === "all"
       ? (posts ?? [])
       : (posts ?? []).filter((p) => p.category === filterCategory);
+
+  // Deep-link from a notification: open that post's comments and scroll to it.
+  useEffect(() => {
+    if (!focusPostId || !posts) return;
+    setOpenComments((s) => ({ ...s, [focusPostId]: true }));
+    const el = document.getElementById(`post-${focusPostId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("ring-2", "ring-primary");
+      setTimeout(() => el.classList.remove("ring-2", "ring-primary"), 2500);
+    }
+  }, [focusPostId, posts]);
 
   async function handleImage(file: File) {
     if (file.size > 5 * 1024 * 1024) return toast.error("Image must be under 5MB");
@@ -567,7 +584,7 @@ function FeedPage() {
             const initials = (p.profiles?.display_name || "?").slice(0, 2).toUpperCase();
             const catStyle = CATEGORY_BADGE[p.category] || CATEGORY_BADGE.general;
             return (
-              <Card key={p.id}>
+              <Card key={p.id} id={`post-${p.id}`} className="scroll-mt-20 transition-shadow">
                 <CardContent className="pt-5">
                   <div className="flex gap-3">
                     <Link to="/u/$id" params={{ id: p.author_id }}>
