@@ -82,6 +82,7 @@ function AdminPage() {
           <TabsTrigger value="allowlist">Allowlist</TabsTrigger>
           <TabsTrigger value="resources">Resources</TabsTrigger>
           <TabsTrigger value="feedback">Feedback & Bugs</TabsTrigger>
+          <TabsTrigger value="events">Events</TabsTrigger>
           <TabsTrigger value="masterclasses">Masterclasses</TabsTrigger>
           <TabsTrigger value="cohort_todos">Cohort Tasks</TabsTrigger>
           <TabsTrigger value="screentime">Screen Time</TabsTrigger>
@@ -109,6 +110,9 @@ function AdminPage() {
         </TabsContent>
         <TabsContent value="feedback" className="mt-4">
           <FeedbackPanel />
+        </TabsContent>
+        <TabsContent value="events" className="mt-4">
+          <EventsPanel />
         </TabsContent>
         <TabsContent value="masterclasses" className="mt-4">
           <MasterclassesPanel />
@@ -1736,6 +1740,167 @@ function FeedbackPanel() {
 }
 
 // ─── Masterclasses Management Panel ───
+// ─── Events & Masterclasses Management Panel ───
+function EventsPanel() {
+  const qc = useQueryClient();
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [eventType, setEventType] = useState<"masterclass" | "event" | "workshop" | "deadline">("masterclass");
+  const [scheduledAt, setScheduledAt] = useState("");
+  const [durationMinutes, setDurationMinutes] = useState("");
+  const [meetingLink, setMeetingLink] = useState("");
+  const [bannerImageUrl, setBannerImageUrl] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const { data: events, isLoading } = useQuery({
+    queryKey: ["admin", "events"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("events")
+        .select("*")
+        .order("scheduled_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const create = useMutation({
+    mutationFn: async () => {
+      if (!title.trim() || !scheduledAt) {
+        throw new Error("Title and Date & Time are required.");
+      }
+      setBusy(true);
+      const { data: userData } = await supabase.auth.getUser();
+      const { error } = await supabase.from("events").insert({
+        title: title.trim(),
+        description: description.trim() || null,
+        event_type: eventType,
+        scheduled_at: new Date(scheduledAt).toISOString(),
+        duration_minutes: durationMinutes ? Number(durationMinutes) : null,
+        meeting_link: meetingLink.trim() || null,
+        banner_image_url: bannerImageUrl.trim() || null,
+        created_by: userData.user?.id ?? null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Event scheduled! All mentees have been notified.");
+      setTitle("");
+      setDescription("");
+      setEventType("masterclass");
+      setScheduledAt("");
+      setDurationMinutes("");
+      setMeetingLink("");
+      setBannerImageUrl("");
+      qc.invalidateQueries({ queryKey: ["admin", "events"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+    onSettled: () => setBusy(false),
+  });
+
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("events").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Event deleted");
+      qc.invalidateQueries({ queryKey: ["admin", "events"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Schedule a New Event / Masterclass</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>Title *</Label>
+              <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="E.g. Resume Building Masterclass" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Type *</Label>
+              <Select value={eventType} onValueChange={(v: any) => setEventType(v)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="masterclass">Masterclass</SelectItem>
+                  <SelectItem value="event">Event</SelectItem>
+                  <SelectItem value="workshop">Workshop</SelectItem>
+                  <SelectItem value="deadline">Deadline</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Date & Time *</Label>
+              <Input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Duration (minutes)</Label>
+              <Input type="number" value={durationMinutes} onChange={(e) => setDurationMinutes(e.target.value)} placeholder="60" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Meeting / Join Link</Label>
+              <Input type="url" value={meetingLink} onChange={(e) => setMeetingLink(e.target.value)} placeholder="https://meet.google.com/..." />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Banner Image URL (Optional)</Label>
+              <Input type="url" value={bannerImageUrl} onChange={(e) => setBannerImageUrl(e.target.value)} placeholder="https://..." />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Description</Label>
+            <Textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What is this event about?" />
+          </div>
+          <Button disabled={busy} onClick={() => create.mutate()} className="w-full text-white" style={{ background: "var(--gradient-primary)" }}>
+            {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Schedule Event & Notify Mentees
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>All Events ({(events ?? []).length})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          ) : (events ?? []).length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4">No events scheduled yet.</p>
+          ) : (
+            <div className="divide-y space-y-3">
+              {(events ?? []).map((ev: any) => (
+                <div key={ev.id} className="flex justify-between items-start gap-4 pt-3 first:pt-0">
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-sm">{ev.title}</p>
+                      <Badge variant="outline" className="text-[10px]">{ev.event_type}</Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(ev.scheduled_at).toLocaleString(undefined, {
+                        weekday: "short", day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit",
+                      })}
+                    </p>
+                  </div>
+                  <Button size="sm" variant="ghost" onClick={() => { if (confirm("Delete this event?")) remove.mutate(ev.id); }} className="hover:bg-destructive/10 text-muted-foreground hover:text-destructive shrink-0">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ─── Masterclass Recordings Management Panel ───
 function MasterclassesPanel() {
   const qc = useQueryClient();
   const [title, setTitle] = useState("");
@@ -2211,4 +2376,3 @@ function ScreenTimePanel() {
     </div>
   );
 }
-

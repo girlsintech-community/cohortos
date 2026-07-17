@@ -37,6 +37,7 @@ import {
   CheckSquare,
   Square,
   FileText,
+  Calendar,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
@@ -1497,6 +1498,7 @@ function AuthedLayout() {
         { to: "/pods", label: "Pods", icon: UsersRound },
         { to: "/challenges", label: "Challenges", icon: Target },
         { to: "/leaderboard", label: "Leaderboard", icon: Trophy },
+        { to: "/events", label: "Events", icon: Calendar },
         { to: "/resources", label: "Resources", icon: BookOpen },
         { to: "/library", label: "Library", icon: BookOpen },
         ...(primaryRole === "mentee"
