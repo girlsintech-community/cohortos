@@ -25,6 +25,9 @@ import {
   BookOpen,
   Clock,
   HelpCircle,
+  LogIn,
+  TrendingUp,
+  Medal,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
@@ -275,6 +278,81 @@ function Dashboard() {
     },
   });
 
+  const { data: loginStats } = useQuery({
+    queryKey: ["dashboardLoginStats"],
+    queryFn: async () => {
+      const [todayLogins, totalLogins, myLogins] = await Promise.all([
+        supabase
+          .from("xp_events")
+          .select("id", { count: "exact", head: true })
+          .eq("event_type", "daily_login")
+          .gte("created_at", dayIso),
+        supabase
+          .from("xp_events")
+          .select("id", { count: "exact", head: true })
+          .eq("event_type", "daily_login"),
+        supabase
+          .from("xp_events")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", user.id)
+          .eq("event_type", "daily_login"),
+      ]);
+      return {
+        todayLogins: todayLogins.count ?? 0,
+        totalLogins: totalLogins.count ?? 0,
+        myLogins: myLogins.count ?? 0,
+      };
+    },
+  });
+
+  const { data: challengeDashboard } = useQuery({
+    queryKey: ["challengeDashboardData"],
+    queryFn: async () => {
+      const [challengesRes, submissionsRes, profilesRes] = await Promise.all([
+        supabase.from("challenges").select("id, title, difficulty, xp_reward"),
+        supabase.from("challenge_submissions").select("id, challenge_id, user_id, status, created_at"),
+        supabase.from("profiles").select("id, display_name, avatar_url, xp"),
+      ]);
+
+      const challenges = challengesRes.data ?? [];
+      const submissions = submissionsRes.data ?? [];
+      const profilesMap = new Map((profilesRes.data ?? []).map((p) => [p.id, p]));
+
+      const solverCounts: Record<string, { count: number; user: any }> = {};
+      submissions.forEach((s) => {
+        const u = profilesMap.get(s.user_id);
+        if (!u) return;
+        if (!solverCounts[s.user_id]) {
+          solverCounts[s.user_id] = { count: 0, user: u };
+        }
+        solverCounts[s.user_id].count += 1;
+      });
+
+      const topSolvers = Object.values(solverCounts)
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 6);
+
+      const perChallenge = challenges.map((c) => {
+        const subsForC = submissions.filter((s) => s.challenge_id === c.id);
+        const uniqueSolvers = new Set(subsForC.map((s) => s.user_id));
+        return {
+          ...c,
+          totalSubmissions: subsForC.length,
+          uniqueSolversCount: uniqueSolvers.size,
+        };
+      }).sort((a, b) => b.uniqueSolversCount - a.uniqueSolversCount);
+
+      const totalUniqueSolvers = new Set(submissions.map((s) => s.user_id)).size;
+
+      return {
+        topSolvers,
+        perChallenge,
+        totalSubmissions: submissions.length,
+        totalUniqueSolvers,
+      };
+    },
+  });
+
   const [memberQ, setMemberQ] = useState("");
   const filteredMembers = (members ?? []).filter((m) => {
     if (!memberQ.trim()) return true;
@@ -356,7 +434,7 @@ function Dashboard() {
       </div>
 
       {/* Stat cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard icon={Zap} label="Total XP" value={xp.toLocaleString()} tone="primary" />
         <StatCard
           icon={Trophy}
@@ -373,6 +451,20 @@ function Dashboard() {
           value={(totalUsers ?? 0).toString()}
           tone="success"
           sub="members"
+        />
+        <StatCard
+          icon={LogIn}
+          label="Daily Logins Triggered"
+          value={(loginStats?.todayLogins ?? 0).toString()}
+          tone="primary"
+          sub={`Total logins: ${(loginStats?.totalLogins ?? 0).toLocaleString()}`}
+        />
+        <StatCard
+          icon={Target}
+          label="Challenge Solvers"
+          value={(challengeDashboard?.totalUniqueSolvers ?? 0).toString()}
+          tone="accent"
+          sub={`${challengeDashboard?.totalSubmissions ?? 0} total submissions`}
         />
       </div>
 
@@ -455,6 +547,89 @@ function Dashboard() {
                   ))}
                 </div>
               )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="flex items-center gap-2">
+                <Target className="h-5 w-5 text-accent" /> Challenge Solvers & Participation
+              </CardTitle>
+              <Badge variant="outline" className="text-xs font-semibold">
+                {(challengeDashboard?.totalUniqueSolvers ?? 0)} Active Solvers
+              </Badge>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Top Solvers Grid */}
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                  🏆 Top Challenge Solvers
+                </p>
+                {(!challengeDashboard?.topSolvers || challengeDashboard.topSolvers.length === 0) ? (
+                  <p className="text-xs text-muted-foreground py-2">No challenge solvers yet.</p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {challengeDashboard.topSolvers.map((item, idx) => {
+                      const initials = (item.user.display_name || "?").slice(0, 2).toUpperCase();
+                      const rankMedal = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `#${idx + 1}`;
+                      return (
+                        <Link
+                          key={item.user.id}
+                          to="/u/$id"
+                          params={{ id: item.user.id }}
+                          className="flex items-center gap-3 rounded-lg border p-2.5 bg-muted/20 hover:bg-muted/40 transition"
+                        >
+                          <span className="text-base font-bold shrink-0 w-6 text-center">{rankMedal}</span>
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={item.user.avatar_url ?? undefined} />
+                            <AvatarFallback className="text-xs bg-primary text-primary-foreground">
+                              {initials}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-semibold text-xs truncate">{item.user.display_name}</p>
+                            <p className="text-[10px] text-muted-foreground">{(item.user.xp ?? 0).toLocaleString()} XP</p>
+                          </div>
+                          <Badge variant="secondary" className="text-[11px] shrink-0">
+                            {item.count} solved
+                          </Badge>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Per Challenge Solver Count Breakdown */}
+              <div className="space-y-3 border-t pt-4">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  🎯 Participation per Challenge
+                </p>
+                {(!challengeDashboard?.perChallenge || challengeDashboard.perChallenge.length === 0) ? (
+                  <p className="text-xs text-muted-foreground py-2">No active challenges available.</p>
+                ) : (
+                  <div className="space-y-2.5">
+                    {challengeDashboard.perChallenge.map((c) => (
+                      <div key={c.id} className="flex items-center justify-between gap-3 rounded-lg border bg-muted/30 p-2.5 text-xs">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-foreground truncate">{c.title}</p>
+                            <Badge variant="outline" className="text-[10px] capitalize shrink-0">
+                              {c.difficulty}
+                            </Badge>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                            +{c.xp_reward} XP · {c.totalSubmissions} total submission{c.totalSubmissions === 1 ? "" : "s"}
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className="font-bold text-primary text-sm">{c.uniqueSolversCount}</span>
+                          <span className="text-[10px] text-muted-foreground block">solver{c.uniqueSolversCount === 1 ? "" : "s"}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
         </div>

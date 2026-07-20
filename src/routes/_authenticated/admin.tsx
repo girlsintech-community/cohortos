@@ -400,6 +400,9 @@ function OverviewPanel() {
 
 function MembersPanel() {
   const qc = useQueryClient();
+  const [filter, setFilter] = useState<"all" | "zero" | "active">("all");
+  const [search, setSearch] = useState("");
+
   const { data, isLoading } = useQuery({
     queryKey: ["admin", "members"],
     queryFn: async () => {
@@ -412,6 +415,21 @@ function MembersPanel() {
         .limit(500);
       if (error) throw error;
       return data;
+    },
+  });
+
+  const { data: subCounts } = useQuery({
+    queryKey: ["admin", "memberSubmissionsCounts"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("challenge_submissions")
+        .select("user_id");
+      if (error) throw error;
+      const map: Record<string, number> = {};
+      (data ?? []).forEach((s) => {
+        map[s.user_id] = (map[s.user_id] || 0) + 1;
+      });
+      return map;
     },
   });
 
@@ -438,94 +456,191 @@ function MembersPanel() {
     );
   if (!data?.length) return <p className="text-sm text-muted-foreground">No members yet.</p>;
 
+  const zeroSubmissionMembers = data.filter((m) => (subCounts?.[m.id] ?? 0) === 0);
+
+  const filteredMembers = data.filter((m) => {
+    const s = search.toLowerCase().trim();
+    const matchesSearch =
+      !s ||
+      (m.display_name ?? "").toLowerCase().includes(s) ||
+      (m.college ?? "").toLowerCase().includes(s) ||
+      (m.username ?? "").toLowerCase().includes(s);
+
+    const count = subCounts?.[m.id] ?? 0;
+    if (filter === "zero") return matchesSearch && count === 0;
+    if (filter === "active") return matchesSearch && count > 0;
+    return matchesSearch;
+  });
+
   return (
-    <Card>
-      <CardContent className="p-0 overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="border-b bg-muted/40 text-left">
-            <tr>
-              <th className="p-3 font-medium">Member</th>
-              <th className="p-3 font-medium">Role</th>
-              <th className="p-3 font-medium">College</th>
-              <th className="p-3 font-medium">Location</th>
-              <th className="p-3 font-medium">Year</th>
-              <th className="p-3 font-medium text-right">XP</th>
-              <th className="p-3 font-medium text-right">Lvl</th>
-              <th className="p-3 font-medium text-right">🔥</th>
-              <th className="p-3 font-medium">Status</th>
-              <th className="p-3 font-medium">Links</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.map((m) => (
-              <tr key={m.id} className="border-b hover:bg-muted/30">
-                <td className="p-3">
-                  <p className="font-medium">{m.display_name ?? "—"}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {(m as any).username ? `@${(m as any).username} · ` : ""}Joined{" "}
-                    {new Date(m.created_at).toLocaleDateString()}
-                  </p>
-                </td>
-                <td className="p-3">
-                  <Select
-                    value={(m as any).primary_role ?? "mentee"}
-                    onValueChange={(v) => setRole.mutate({ userId: m.id, role: v })}
-                  >
-                    <SelectTrigger className="h-8 w-32 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="mentee">Mentee</SelectItem>
-                      <SelectItem value="mentor">Mentor</SelectItem>
-                      <SelectItem value="team_member">Team</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </td>
-                <td className="p-3">
-                  {m.college ?? "—"}
-                  <div className="text-xs text-muted-foreground">{m.branch ?? ""}</div>
-                </td>
-                <td className="p-3">{[m.city, m.state].filter(Boolean).join(", ") || "—"}</td>
-                <td className="p-3">{m.graduation_year ?? "—"}</td>
-                <td className="p-3 text-right font-semibold">{(m.xp ?? 0).toLocaleString()}</td>
-                <td className="p-3 text-right">{m.level ?? 1}</td>
-                <td className="p-3 text-right">{m.streak ?? 0}</td>
-                <td className="p-3">
-                  <Badge
-                    variant={m.onboarded ? "default" : "outline"}
-                    className={m.onboarded ? "bg-success text-success-foreground" : ""}
-                  >
-                    {m.onboarded ? "Active" : "Pending"}
-                  </Badge>
-                </td>
-                <td className="p-3 text-xs space-x-2">
-                  {m.linkedin_url && (
-                    <a
-                      className="text-primary hover:underline"
-                      href={m.linkedin_url}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      LI
-                    </a>
-                  )}
-                  {m.github_url && (
-                    <a
-                      className="text-primary hover:underline"
-                      href={m.github_url}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      GH
-                    </a>
-                  )}
-                </td>
+    <div className="space-y-4">
+      {/* Overview Alert Banner for Inactive Members */}
+      <div className="rounded-xl border bg-amber-500/10 border-amber-500/20 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-amber-900 dark:text-amber-200">
+        <div className="flex items-center gap-3">
+          <div className="grid h-9 w-9 place-items-center rounded-lg bg-amber-500/20 shrink-0">
+            <Target className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+          </div>
+          <div>
+            <p className="font-semibold text-sm">
+              {zeroSubmissionMembers.length} member{zeroSubmissionMembers.length === 1 ? "" : "s"} haven't submitted any challenge yet
+            </p>
+            <p className="text-xs opacity-90">
+              Encourage them to take on their first challenge to boost cohort engagement!
+            </p>
+          </div>
+        </div>
+        <Button
+          size="sm"
+          variant={filter === "zero" ? "default" : "outline"}
+          onClick={() => setFilter(filter === "zero" ? "all" : "zero")}
+          className="shrink-0 text-xs"
+        >
+          {filter === "zero" ? "Show All Members" : `Filter 0 Submissions (${zeroSubmissionMembers.length})`}
+        </Button>
+      </div>
+
+      {/* Filter and Search Toolbar */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="relative w-full sm:w-72">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search member by name or college..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 text-xs"
+          />
+        </div>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <Button
+            size="sm"
+            variant={filter === "all" ? "default" : "outline"}
+            onClick={() => setFilter("all")}
+            className="text-xs"
+          >
+            All ({data.length})
+          </Button>
+          <Button
+            size="sm"
+            variant={filter === "zero" ? "default" : "outline"}
+            onClick={() => setFilter("zero")}
+            className="text-xs"
+          >
+            0 Submissions ({zeroSubmissionMembers.length})
+          </Button>
+          <Button
+            size="sm"
+            variant={filter === "active" ? "default" : "outline"}
+            onClick={() => setFilter("active")}
+            className="text-xs"
+          >
+            Submitted ({data.length - zeroSubmissionMembers.length})
+          </Button>
+        </div>
+      </div>
+
+      <Card>
+        <CardContent className="p-0 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="border-b bg-muted/40 text-left">
+              <tr>
+                <th className="p-3 font-medium">Member</th>
+                <th className="p-3 font-medium">Role</th>
+                <th className="p-3 font-medium text-center">Submitted Challenges</th>
+                <th className="p-3 font-medium">College</th>
+                <th className="p-3 font-medium">Location</th>
+                <th className="p-3 font-medium">Year</th>
+                <th className="p-3 font-medium text-right">XP</th>
+                <th className="p-3 font-medium text-right">Lvl</th>
+                <th className="p-3 font-medium text-right">🔥</th>
+                <th className="p-3 font-medium">Status</th>
+                <th className="p-3 font-medium">Links</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </CardContent>
-    </Card>
+            </thead>
+            <tbody>
+              {filteredMembers.map((m) => {
+                const count = subCounts?.[m.id] ?? 0;
+                return (
+                  <tr key={m.id} className="border-b hover:bg-muted/30">
+                    <td className="p-3">
+                      <p className="font-medium">{m.display_name ?? "—"}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {(m as any).username ? `@${(m as any).username} · ` : ""}Joined{" "}
+                        {new Date(m.created_at).toLocaleDateString()}
+                      </p>
+                    </td>
+                    <td className="p-3">
+                      <Select
+                        value={(m as any).primary_role ?? "mentee"}
+                        onValueChange={(v) => setRole.mutate({ userId: m.id, role: v })}
+                      >
+                        <SelectTrigger className="h-8 w-32 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="mentee">Mentee</SelectItem>
+                          <SelectItem value="mentor">Mentor</SelectItem>
+                          <SelectItem value="team_member">Team</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </td>
+                    <td className="p-3 text-center">
+                      {count === 0 ? (
+                        <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20 font-semibold text-[11px]">
+                          0 Submissions ⚠️
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 font-bold text-[11px]">
+                          {count} Challenge{count === 1 ? "" : "s"} ✓
+                        </Badge>
+                      )}
+                    </td>
+                    <td className="p-3">
+                      {m.college ?? "—"}
+                      <div className="text-xs text-muted-foreground">{m.branch ?? ""}</div>
+                    </td>
+                    <td className="p-3">{[m.city, m.state].filter(Boolean).join(", ") || "—"}</td>
+                    <td className="p-3">{m.graduation_year ?? "—"}</td>
+                    <td className="p-3 text-right font-semibold">{(m.xp ?? 0).toLocaleString()}</td>
+                    <td className="p-3 text-right">{m.level ?? 1}</td>
+                    <td className="p-3 text-right">{m.streak ?? 0}</td>
+                    <td className="p-3">
+                      <Badge
+                        variant={m.onboarded ? "default" : "outline"}
+                        className={m.onboarded ? "bg-success text-success-foreground" : ""}
+                      >
+                        {m.onboarded ? "Active" : "Pending"}
+                      </Badge>
+                    </td>
+                    <td className="p-3 text-xs space-x-2">
+                      {m.linkedin_url && (
+                        <a
+                          className="text-primary hover:underline"
+                          href={m.linkedin_url}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          LI
+                        </a>
+                      )}
+                      {m.github_url && (
+                        <a
+                          className="text-primary hover:underline"
+                          href={m.github_url}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          GH
+                        </a>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
@@ -1750,12 +1865,17 @@ function EventsPanel() {
   const [durationMinutes, setDurationMinutes] = useState("");
   const [meetingLink, setMeetingLink] = useState("");
   const [bannerImageUrl, setBannerImageUrl] = useState("");
+  const [speakerName, setSpeakerName] = useState("");
+  const [speakerDesignation, setSpeakerDesignation] = useState("");
+  const [speakerLinkedin, setSpeakerLinkedin] = useState("");
+  const [speakerBio, setSpeakerBio] = useState("");
+  const [speakerAvatarUrl, setSpeakerAvatarUrl] = useState("");
   const [busy, setBusy] = useState(false);
 
   const { data: events, isLoading } = useQuery({
     queryKey: ["admin", "events"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("events")
         .select("*")
         .order("scheduled_at", { ascending: false });
@@ -1771,7 +1891,7 @@ function EventsPanel() {
       }
       setBusy(true);
       const { data: userData } = await supabase.auth.getUser();
-      const { error } = await supabase.from("events").insert({
+      const { error } = await (supabase as any).from("events").insert({
         title: title.trim(),
         description: description.trim() || null,
         event_type: eventType,
@@ -1779,6 +1899,11 @@ function EventsPanel() {
         duration_minutes: durationMinutes ? Number(durationMinutes) : null,
         meeting_link: meetingLink.trim() || null,
         banner_image_url: bannerImageUrl.trim() || null,
+        speaker_name: speakerName.trim() || null,
+        speaker_designation: speakerDesignation.trim() || null,
+        speaker_linkedin: speakerLinkedin.trim() || null,
+        speaker_bio: speakerBio.trim() || null,
+        speaker_avatar_url: speakerAvatarUrl.trim() || null,
         created_by: userData.user?.id ?? null,
       });
       if (error) throw error;
@@ -1792,6 +1917,11 @@ function EventsPanel() {
       setDurationMinutes("");
       setMeetingLink("");
       setBannerImageUrl("");
+      setSpeakerName("");
+      setSpeakerDesignation("");
+      setSpeakerLinkedin("");
+      setSpeakerBio("");
+      setSpeakerAvatarUrl("");
       qc.invalidateQueries({ queryKey: ["admin", "events"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -1800,7 +1930,7 @@ function EventsPanel() {
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("events").delete().eq("id", id);
+      const { error } = await (supabase as any).from("events").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -1849,10 +1979,40 @@ function EventsPanel() {
               <Input type="url" value={meetingLink} onChange={(e) => setMeetingLink(e.target.value)} placeholder="https://meet.google.com/..." />
             </div>
             <div className="space-y-1.5">
-              <Label>Banner Image URL (Optional)</Label>
+              <Label>Poster / Banner Image URL (Optional)</Label>
               <Input type="url" value={bannerImageUrl} onChange={(e) => setBannerImageUrl(e.target.value)} placeholder="https://..." />
             </div>
           </div>
+
+          {/* Speaker Details Section */}
+          <div className="border-t pt-4 space-y-4">
+            <h3 className="font-semibold text-sm text-foreground flex items-center gap-2">
+              <Users className="h-4 w-4 text-primary" /> Speaker Details
+            </h3>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label>Speaker Name</Label>
+                <Input value={speakerName} onChange={(e) => setSpeakerName(e.target.value)} placeholder="E.g. Sarah Jenkins" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Speaker Designation / Role</Label>
+                <Input value={speakerDesignation} onChange={(e) => setSpeakerDesignation(e.target.value)} placeholder="E.g. Senior Tech Lead at Google" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Speaker LinkedIn URL</Label>
+                <Input type="url" value={speakerLinkedin} onChange={(e) => setSpeakerLinkedin(e.target.value)} placeholder="https://linkedin.com/in/..." />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Speaker Profile Picture / Photo URL</Label>
+                <Input type="url" value={speakerAvatarUrl} onChange={(e) => setSpeakerAvatarUrl(e.target.value)} placeholder="https://..." />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Speaker Bio</Label>
+              <Textarea rows={2} value={speakerBio} onChange={(e) => setSpeakerBio(e.target.value)} placeholder="Brief description about the speaker's background and achievements..." />
+            </div>
+          </div>
+
           <div className="space-y-1.5">
             <Label>Description</Label>
             <Textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What is this event about?" />

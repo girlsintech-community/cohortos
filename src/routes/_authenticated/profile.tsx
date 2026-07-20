@@ -21,6 +21,7 @@ import {
   Github,
   MapPin,
   GraduationCap,
+  Target,
 } from "lucide-react";
 import {
   Select,
@@ -114,7 +115,7 @@ function ProfilePage() {
     queryFn: async () => {
       const postIdsRes = await supabase.from("posts").select("id").eq("author_id", user.id);
       const postIds = (postIdsRes.data ?? []).map((p) => p.id);
-      const [postsCount, commentsCount, likesGiven, likesReceived] = await Promise.all([
+      const [postsCount, commentsCount, likesGiven, likesReceived, challengesCount] = await Promise.all([
         supabase
           .from("posts")
           .select("id", { count: "exact", head: true })
@@ -133,12 +134,17 @@ function ProfilePage() {
               .select("post_id", { count: "exact", head: true })
               .in("post_id", postIds)
           : Promise.resolve({ count: 0 } as { count: number | null }),
+        supabase
+          .from("challenge_submissions")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", user.id),
       ]);
       return {
         posts: postsCount.count ?? 0,
         comments: commentsCount.count ?? 0,
         likesGiven: likesGiven.count ?? 0,
         likesReceived: likesReceived.count ?? 0,
+        challenges: challengesCount.count ?? 0,
       };
     },
   });
@@ -311,7 +317,8 @@ function ProfilePage() {
             <MiniStat icon={Trophy} label="Level" value={profile.level.toString()} />
             <MiniStat icon={Flame} label="Streak" value={`${profile.streak}d`} />
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-4">
+            <MiniStat icon={Target} label="Challenges Submitted" value={String(stats?.challenges ?? 0)} />
             <MiniStat icon={Zap} label="Posts" value={String(stats?.posts ?? 0)} />
             <MiniStat icon={Zap} label="Comments" value={String(stats?.comments ?? 0)} />
             <MiniStat icon={Zap} label="Likes given" value={String(stats?.likesGiven ?? 0)} />

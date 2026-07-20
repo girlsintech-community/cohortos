@@ -24,6 +24,7 @@ import {
   Zap,
   ArrowLeft,
   Award,
+  Target,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -57,7 +58,7 @@ function MemberProfilePage() {
     queryFn: async () => {
       const postIdsRes = await supabase.from("posts").select("id").eq("author_id", id);
       const postIds = (postIdsRes.data ?? []).map((p) => p.id);
-      const [posts, comments, likesReceived] = await Promise.all([
+      const [posts, comments, likesReceived, challenges] = await Promise.all([
         supabase.from("posts").select("id", { count: "exact", head: true }).eq("author_id", id),
         supabase
           .from("post_comments")
@@ -69,11 +70,16 @@ function MemberProfilePage() {
               .select("post_id", { count: "exact", head: true })
               .in("post_id", postIds)
           : Promise.resolve({ count: 0 } as { count: number | null }),
+        supabase
+          .from("challenge_submissions")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", id),
       ]);
       return {
         posts: posts.count ?? 0,
         comments: comments.count ?? 0,
         likesReceived: likesReceived.count ?? 0,
+        challenges: challenges.count ?? 0,
       };
     },
   });
@@ -219,7 +225,8 @@ function MemberProfilePage() {
             <Mini icon={Flame} label="Streak" value={`${profile.streak}d`} />
           </div>
           {stats && (
-            <div className="grid grid-cols-3 gap-3 mt-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
+              <Mini icon={Target} label="Challenges Submitted" value={String(stats.challenges)} />
               <Mini icon={Zap} label="Posts" value={String(stats.posts)} />
               <Mini icon={Zap} label="Comments" value={String(stats.comments)} />
               <Mini icon={Zap} label="Likes received" value={String(stats.likesReceived)} />

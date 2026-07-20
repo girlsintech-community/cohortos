@@ -1,10 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, Clock, ExternalLink, Loader2, Video, PartyPopper } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Calendar, Clock, ExternalLink, Loader2, Video, PartyPopper, ChevronRight, User } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/events")({
   component: EventsPage,
@@ -19,6 +20,11 @@ type EventRow = {
   duration_minutes: number | null;
   meeting_link: string | null;
   banner_image_url: string | null;
+  speaker_name: string | null;
+  speaker_designation: string | null;
+  speaker_linkedin: string | null;
+  speaker_bio: string | null;
+  speaker_avatar_url: string | null;
 };
 
 const typeLabel: Record<EventRow["event_type"], string> = {
@@ -47,9 +53,9 @@ function EventsPage() {
   const { data: events, isLoading } = useQuery({
     queryKey: ["events"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("events")
-        .select("id, title, description, event_type, scheduled_at, duration_minutes, meeting_link, banner_image_url")
+        .select("id, title, description, event_type, scheduled_at, duration_minutes, meeting_link, banner_image_url, speaker_name, speaker_designation, speaker_linkedin, speaker_bio, speaker_avatar_url")
         .order("scheduled_at", { ascending: true });
       if (error) throw error;
       return data as EventRow[];
@@ -90,46 +96,75 @@ function EventsPage() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-6 md:grid-cols-2">
                 {upcoming.map((ev) => {
                   const { date, time } = formatWhen(ev.scheduled_at);
+                  const speakerInitials = (ev.speaker_name || "Speaker").slice(0, 2).toUpperCase();
+
                   return (
-                    <Card key={ev.id} className="overflow-hidden border hover:border-primary/30 transition">
+                    <Card key={ev.id} className="overflow-hidden border hover:border-primary/40 hover:shadow-md transition group">
                       {ev.banner_image_url && (
-                        <div className="aspect-[3/1] w-full overflow-hidden border-b">
-                          <img src={ev.banner_image_url} alt={ev.title} className="w-full h-full object-cover" />
-                        </div>
+                        <Link to="/events/$id" params={{ id: ev.id }} className="block aspect-[16/9] w-full overflow-hidden border-b relative">
+                          <img src={ev.banner_image_url} alt={ev.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
+                          <div className="absolute top-3 left-3">
+                            <Badge variant="secondary" className="shadow">
+                              {typeLabel[ev.event_type]}
+                            </Badge>
+                          </div>
+                        </Link>
                       )}
-                      <CardContent className="p-5 space-y-3">
-                        <div className="flex items-center justify-between gap-2">
-                          <Badge variant="outline" className={typeColor[ev.event_type]}>
-                            {typeLabel[ev.event_type]}
-                          </Badge>
-                        </div>
-                        <h3 className="font-bold text-lg leading-snug">{ev.title}</h3>
-                        {ev.description && (
-                          <p className="text-sm text-muted-foreground leading-relaxed">{ev.description}</p>
+                      <CardContent className="p-5 space-y-4">
+                        {!ev.banner_image_url && (
+                          <div className="flex items-center justify-between gap-2">
+                            <Badge variant="outline" className={typeColor[ev.event_type]}>
+                              {typeLabel[ev.event_type]}
+                            </Badge>
+                          </div>
                         )}
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground pt-1">
-                          <span className="flex items-center gap-1.5">
-                            <Calendar className="h-4 w-4" /> {date}
-                          </span>
-                          <span className="flex items-center gap-1.5">
-                            <Clock className="h-4 w-4" /> {time}
-                            {ev.duration_minutes ? ` · ${ev.duration_minutes} min` : ""}
-                          </span>
+
+                        <div>
+                          <Link to="/events/$id" params={{ id: ev.id }} className="group-hover:text-primary transition">
+                            <h3 className="font-bold text-xl leading-snug flex items-center justify-between">
+                              <span>{ev.title}</span>
+                              <ChevronRight className="h-5 w-5 opacity-0 group-hover:opacity-100 transition shrink-0 ml-2" />
+                            </h3>
+                          </Link>
+                          {ev.description && (
+                            <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2 mt-1.5">{ev.description}</p>
+                          )}
                         </div>
-                        {ev.meeting_link && (
-                          <Button
-                            asChild
-                            className="w-full mt-2 text-white"
-                            style={{ background: "var(--gradient-primary)" }}
-                          >
-                            <a href={ev.meeting_link} target="_blank" rel="noreferrer">
-                              Join Link <ExternalLink className="ml-1.5 h-4 w-4" />
-                            </a>
-                          </Button>
+
+                        {/* Speaker info preview */}
+                        {ev.speaker_name && (
+                          <div className="flex items-center gap-3 rounded-lg border bg-muted/30 p-2.5">
+                            <Avatar className="h-9 w-9 border border-primary/20 shrink-0">
+                              <AvatarImage src={ev.speaker_avatar_url ?? undefined} />
+                              <AvatarFallback className="text-xs bg-primary text-primary-foreground font-bold">
+                                {speakerInitials}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-semibold text-xs truncate text-foreground">{ev.speaker_name}</p>
+                              {ev.speaker_designation && (
+                                <p className="text-[11px] text-muted-foreground truncate">{ev.speaker_designation}</p>
+                              )}
+                            </div>
+                          </div>
                         )}
+
+                        <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t">
+                          <div className="flex items-center gap-3">
+                            <span className="flex items-center gap-1">
+                              <Calendar className="h-3.5 w-3.5" /> {date}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3.5 w-3.5" /> {time}
+                            </span>
+                          </div>
+                          <Link to="/events/$id" params={{ id: ev.id }} className="font-semibold text-primary hover:underline flex items-center gap-0.5 text-xs">
+                            Details <ChevronRight className="h-3.5 w-3.5" />
+                          </Link>
+                        </div>
                       </CardContent>
                     </Card>
                   );
@@ -140,20 +175,27 @@ function EventsPage() {
 
           {past.length > 0 && (
             <section className="space-y-4">
-              <h2 className="text-lg font-bold text-muted-foreground">Past</h2>
+              <h2 className="text-lg font-bold text-muted-foreground">Past Sessions</h2>
               <div className="grid gap-3 md:grid-cols-2">
                 {past.map((ev) => {
                   const { date } = formatWhen(ev.scheduled_at);
                   return (
-                    <Card key={ev.id} className="border-dashed opacity-70">
-                      <CardContent className="p-4 flex items-center gap-3">
-                        <Video className="h-5 w-5 text-muted-foreground shrink-0" />
-                        <div className="min-w-0">
-                          <p className="font-semibold text-sm truncate">{ev.title}</p>
-                          <p className="text-xs text-muted-foreground">{date}</p>
-                        </div>
-                      </CardContent>
-                    </Card>
+                    <Link key={ev.id} to="/events/$id" params={{ id: ev.id }}>
+                      <Card className="border-dashed opacity-80 hover:opacity-100 hover:border-primary/40 transition">
+                        <CardContent className="p-4 flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <Video className="h-5 w-5 text-muted-foreground shrink-0" />
+                            <div className="min-w-0">
+                              <p className="font-semibold text-sm truncate">{ev.title}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {date} {ev.speaker_name ? `· Speaker: ${ev.speaker_name}` : ""}
+                              </p>
+                            </div>
+                          </div>
+                          <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                        </CardContent>
+                      </Card>
+                    </Link>
                   );
                 })}
               </div>

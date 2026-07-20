@@ -22,8 +22,7 @@ function LeaderboardPage() {
       const { data, error } = await supabase
         .from("profiles")
         .select("id, display_name, avatar_url, xp, level, streak, college")
-        .order("xp", { ascending: false })
-        .limit(100);
+        .order("xp", { ascending: false });
       if (error) throw error;
       return data;
     },
@@ -64,9 +63,13 @@ function LeaderboardPage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Leaderboard 🏆</h1>
-        <p className="text-muted-foreground">Top XP earners across the cohort.</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-bold">Leaderboard 🏆</h1>
+          <p className="text-muted-foreground">
+            Showing all {data?.length ?? 0} registered members across the platform.
+          </p>
+        </div>
       </div>
 
       <div className="relative">
