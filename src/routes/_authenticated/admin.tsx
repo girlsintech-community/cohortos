@@ -1891,7 +1891,7 @@ function EventsPanel() {
       }
       setBusy(true);
       const { data: userData } = await supabase.auth.getUser();
-      const { error } = await (supabase as any).from("events").insert({
+      const payload: Record<string, any> = {
         title: title.trim(),
         description: description.trim() || null,
         event_type: eventType,
@@ -1899,13 +1899,15 @@ function EventsPanel() {
         duration_minutes: durationMinutes ? Number(durationMinutes) : null,
         meeting_link: meetingLink.trim() || null,
         banner_image_url: bannerImageUrl.trim() || null,
-        speaker_name: speakerName.trim() || null,
-        speaker_designation: speakerDesignation.trim() || null,
-        speaker_linkedin: speakerLinkedin.trim() || null,
-        speaker_bio: speakerBio.trim() || null,
-        speaker_avatar_url: speakerAvatarUrl.trim() || null,
         created_by: userData.user?.id ?? null,
-      });
+      };
+      if (speakerName.trim()) payload.speaker_name = speakerName.trim();
+      if (speakerDesignation.trim()) payload.speaker_designation = speakerDesignation.trim();
+      if (speakerLinkedin.trim()) payload.speaker_linkedin = speakerLinkedin.trim();
+      if (speakerBio.trim()) payload.speaker_bio = speakerBio.trim();
+      if (speakerAvatarUrl.trim()) payload.speaker_avatar_url = speakerAvatarUrl.trim();
+
+      const { error } = await (supabase as any).from("events").insert(payload);
       if (error) throw error;
     },
     onSuccess: () => {

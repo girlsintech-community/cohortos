@@ -55,7 +55,7 @@ function EventsPage() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("events")
-        .select("id, title, description, event_type, scheduled_at, duration_minutes, meeting_link, banner_image_url, speaker_name, speaker_designation, speaker_linkedin, speaker_bio, speaker_avatar_url")
+        .select("*")
         .order("scheduled_at", { ascending: true });
       if (error) throw error;
       return data as EventRow[];
