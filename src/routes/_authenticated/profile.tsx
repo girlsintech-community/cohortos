@@ -30,8 +30,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { SKILL_OPTIONS } from "@/lib/skills";
-import { toast } from "sonner";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { MentorProfileView } from "@/components/profile/MentorProfileView";
 
 export const Route = createFileRoute("/_authenticated/profile")({
   component: ProfilePage,
@@ -90,6 +90,7 @@ function ProfilePage() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [primaryRole, setPrimaryRole] = useState<"mentee" | "mentor" | "team_member" | "">("");
+  const [activeTab, setActiveTab] = useState<"mentee" | "mentor">("mentee");
 
   useEffect(() => {
     if (profile) {
@@ -106,7 +107,12 @@ function ProfilePage() {
       setSkills(profile.skills ?? []);
       setAvatarUrl(profile.avatar_url ?? null);
       const pr = (profile as { primary_role?: string | null }).primary_role;
-      if (pr === "mentee" || pr === "mentor" || pr === "team_member") setPrimaryRole(pr);
+      if (pr === "mentee" || pr === "mentor" || pr === "team_member") {
+        setPrimaryRole(pr);
+        if (pr === "mentor") {
+          setActiveTab("mentor");
+        }
+      }
     }
   }, [profile]);
 
@@ -228,266 +234,299 @@ function ProfilePage() {
   const initials = (profile.display_name || user.email || "?").slice(0, 2).toUpperCase();
 
   return (
-    <div className="space-y-8">
-      {/* Profile header */}
-      <Card className="overflow-hidden">
-        <div className="h-28" style={{ background: "var(--gradient-primary)" }} />
-        <CardContent className="pt-0">
-          <div className="flex flex-col sm:flex-row gap-6 -mt-12">
-            <div className="relative">
-              <Avatar className="h-24 w-24 border-4 border-card shadow-lg">
-                <AvatarImage src={avatarUrl ?? profile.avatar_url ?? undefined} />
-                <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
-              <label className="absolute -bottom-1 -right-1 grid h-8 w-8 place-items-center rounded-full bg-primary text-primary-foreground shadow cursor-pointer hover:bg-primary/90">
-                {uploading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Upload className="h-4 w-4" />
-                )}
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => e.target.files?.[0] && handleAvatar(e.target.files[0])}
-                />
-              </label>
-            </div>
-            <div className="flex-1 sm:pt-12">
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-2xl font-bold">{profile.display_name}</h1>
-                {roles?.map((r) => (
-                  <Badge key={r} variant="secondary" className="capitalize">
-                    {r.replace("_", " ")}
-                  </Badge>
-                ))}
-              </div>
-              <p className="text-sm text-muted-foreground mt-1">{user.email}</p>
-              {profile.bio && <p className="mt-3 text-sm">{profile.bio}</p>}
-              <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
-                {profile.college && (
-                  <span className="inline-flex items-center gap-1">
-                    <GraduationCap className="h-3.5 w-3.5" /> {profile.college}
-                    {profile.branch ? ` · ${profile.branch}` : ""}
-                    {profile.graduation_year ? ` · ${profile.graduation_year}` : ""}
-                  </span>
-                )}
-                {(profile.city || profile.state) && (
-                  <span className="inline-flex items-center gap-1">
-                    <MapPin className="h-3.5 w-3.5" />{" "}
-                    {[profile.city, profile.state].filter(Boolean).join(", ")}
-                  </span>
-                )}
-                {profile.linkedin_url && (
-                  <a
-                    href={profile.linkedin_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 hover:text-primary"
-                  >
-                    <Linkedin className="h-3.5 w-3.5" /> LinkedIn
-                  </a>
-                )}
-                {profile.github_url && (
-                  <a
-                    href={profile.github_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 hover:text-primary"
-                  >
-                    <Github className="h-3.5 w-3.5" /> GitHub
-                  </a>
-                )}
-              </div>
-              {profile.skills && profile.skills.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  {profile.skills.map((s: string) => (
-                    <Badge key={s} variant="outline" className="text-xs">
-                      {s}
-                    </Badge>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="grid grid-cols-3 gap-4 mt-6">
-            <MiniStat icon={Zap} label="XP" value={profile.xp.toLocaleString()} />
-            <MiniStat icon={Trophy} label="Level" value={profile.level.toString()} />
-            <MiniStat icon={Flame} label="Streak" value={`${profile.streak}d`} />
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-4">
-            <MiniStat icon={Target} label="Challenges Submitted" value={String(stats?.challenges ?? 0)} />
-            <MiniStat icon={Zap} label="Posts" value={String(stats?.posts ?? 0)} />
-            <MiniStat icon={Zap} label="Comments" value={String(stats?.comments ?? 0)} />
-            <MiniStat icon={Zap} label="Likes given" value={String(stats?.likesGiven ?? 0)} />
-            <MiniStat icon={Zap} label="Likes received" value={String(stats?.likesReceived ?? 0)} />
-          </div>
-        </CardContent>
-      </Card>
+    <div className="space-y-6">
+      {/* Profile Mode Toggle Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl border bg-card/60 backdrop-blur-sm shadow-sm">
+        <div>
+          <h2 className="text-lg font-bold tracking-tight">Profile View Mode</h2>
+          <p className="text-xs text-muted-foreground">Switch seamlessly between your Mentee and Mentor profiles.</p>
+        </div>
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "mentee" | "mentor")} className="w-full sm:w-auto">
+          <TabsList className="grid grid-cols-2 w-full sm:w-[260px] h-10">
+            <TabsTrigger value="mentee" className="gap-2 text-xs font-semibold cursor-pointer">
+              <GraduationCap className="h-4 w-4 text-primary" /> Mentee Profile
+            </TabsTrigger>
+            <TabsTrigger value="mentor" className="gap-2 text-xs font-semibold cursor-pointer">
+              <Award className="h-4 w-4 text-accent" /> Mentor Profile
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Edit */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Edit profile</CardTitle>
-            <CardDescription>Update how you appear to the cohort.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <F label="Display name" className="col-span-2">
-                <Input
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  maxLength={60}
-                />
-              </F>
-              <F label="Role" className="col-span-2">
-                <Select
-                  value={primaryRole}
-                  onValueChange={(v) => setPrimaryRole(v as typeof primaryRole)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="mentee">Mentee</SelectItem>
-                    <SelectItem value="mentor">Mentor</SelectItem>
-                    <SelectItem value="team_member">Team</SelectItem>
-                  </SelectContent>
-                </Select>
-              </F>
-              <F label="Bio" className="col-span-2">
-                <Textarea
-                  rows={3}
-                  value={bio}
-                  onChange={(e) => setBio(e.target.value)}
-                  maxLength={280}
-                />
-              </F>
-              <F label="College" className="col-span-2">
-                <Input
-                  value={college}
-                  onChange={(e) => setCollege(e.target.value)}
-                  maxLength={120}
-                />
-              </F>
-              <F label="Course">
-                <Input value={course} onChange={(e) => setCourse(e.target.value)} maxLength={60} />
-              </F>
-              <F label="Branch">
-                <Input value={branch} onChange={(e) => setBranch(e.target.value)} maxLength={60} />
-              </F>
-              <F label="Grad year">
-                <Input
-                  type="number"
-                  value={gradYear}
-                  onChange={(e) => setGradYear(e.target.value)}
-                />
-              </F>
-              <F label="City">
-                <Input value={city} onChange={(e) => setCity(e.target.value)} maxLength={60} />
-              </F>
-              <F label="State" className="col-span-2">
-                <Input
-                  value={stateVal}
-                  onChange={(e) => setStateVal(e.target.value)}
-                  maxLength={60}
-                />
-              </F>
-              <F label="LinkedIn URL" className="col-span-2">
-                <Input
-                  value={linkedin}
-                  onChange={(e) => setLinkedin(e.target.value)}
-                  placeholder="https://linkedin.com/in/…"
-                />
-                <p className="text-xs text-muted-foreground mt-1">Must be a linkedin.com URL</p>
-              </F>
-              <F label="GitHub URL" className="col-span-2">
-                <Input
-                  value={github}
-                  onChange={(e) => setGithub(e.target.value)}
-                  placeholder="https://github.com/…"
-                />
-                <p className="text-xs text-muted-foreground mt-1">Must be a github.com URL</p>
-              </F>
-              <F label="Skills" className="col-span-2">
-                <div className="flex gap-2">
-                  <Input
-                    list="profile-skills-list"
-                    value={skillInput}
-                    onChange={(e) => setSkillInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        addSkill();
-                      }
-                    }}
-                    placeholder="Pick or type a skill…"
-                  />
-                  <datalist id="profile-skills-list">
-                    {SKILL_OPTIONS.map((s) => (
-                      <option key={s} value={s} />
-                    ))}
-                  </datalist>
-                  <Button type="button" variant="secondary" onClick={addSkill}>
-                    Add
-                  </Button>
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "mentee" | "mentor")}>
+        <TabsContent value="mentee" className="space-y-8 mt-0 focus-visible:outline-none">
+          {/* Profile header */}
+          <Card className="overflow-hidden">
+            <div className="h-28" style={{ background: "var(--gradient-primary)" }} />
+            <CardContent className="pt-0">
+              <div className="flex flex-col sm:flex-row gap-6 -mt-12">
+                <div className="relative">
+                  <Avatar className="h-24 w-24 border-4 border-card shadow-lg">
+                    <AvatarImage src={avatarUrl ?? profile.avatar_url ?? undefined} />
+                    <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
+                      {initials}
+                    </AvatarFallback>
+                  </Avatar>
+                  <label className="absolute -bottom-1 -right-1 grid h-8 w-8 place-items-center rounded-full bg-primary text-primary-foreground shadow cursor-pointer hover:bg-primary/90">
+                    {uploading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Upload className="h-4 w-4" />
+                    )}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => e.target.files?.[0] && handleAvatar(e.target.files[0])}
+                    />
+                  </label>
                 </div>
-                {skills.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {skills.map((s) => (
-                      <Badge key={s} variant="secondary" className="gap-1">
-                        {s}
-                        <button
-                          type="button"
-                          onClick={() => setSkills(skills.filter((x) => x !== s))}
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
+                <div className="flex-1 sm:pt-12">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h1 className="text-2xl font-bold">{profile.display_name}</h1>
+                    {roles?.map((r) => (
+                      <Badge key={r} variant="secondary" className="capitalize">
+                        {r.replace("_", " ")}
                       </Badge>
                     ))}
                   </div>
-                )}
-              </F>
-            </div>
-            <Button onClick={() => save.mutate()} disabled={save.isPending}>
-              {save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save changes
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Badges */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Award className="h-5 w-5 text-accent" /> Badges
-            </CardTitle>
-            <CardDescription>Earn badges by contributing to the cohort.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-3">
-              {BADGES.map((b) => (
-                <div
-                  key={b.id}
-                  className={`rounded-lg border p-3 ${b.earned ? "bg-accent/10 border-accent/30" : "bg-muted/30 opacity-60"}`}
-                >
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={`grid h-8 w-8 place-items-center rounded-lg ${b.earned ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground"}`}
-                    >
-                      <Award className="h-4 w-4" />
-                    </div>
-                    <p className="text-sm font-semibold">{b.name}</p>
+                  <p className="text-sm text-muted-foreground mt-1">{user.email}</p>
+                  {profile.bio && <p className="mt-3 text-sm">{profile.bio}</p>}
+                  <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
+                    {profile.college && (
+                      <span className="inline-flex items-center gap-1">
+                        <GraduationCap className="h-3.5 w-3.5" /> {profile.college}
+                        {profile.branch ? ` · ${profile.branch}` : ""}
+                        {profile.graduation_year ? ` · ${profile.graduation_year}` : ""}
+                      </span>
+                    )}
+                    {(profile.city || profile.state) && (
+                      <span className="inline-flex items-center gap-1">
+                        <MapPin className="h-3.5 w-3.5" />{" "}
+                        {[profile.city, profile.state].filter(Boolean).join(", ")}
+                      </span>
+                    )}
+                    {profile.linkedin_url && (
+                      <a
+                        href={profile.linkedin_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 hover:text-primary"
+                      >
+                        <Linkedin className="h-3.5 w-3.5" /> LinkedIn
+                      </a>
+                    )}
+                    {profile.github_url && (
+                      <a
+                        href={profile.github_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 hover:text-primary"
+                      >
+                        <Github className="h-3.5 w-3.5" /> GitHub
+                      </a>
+                    )}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-2">{b.desc}</p>
+                  {profile.skills && profile.skills.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {profile.skills.map((s: string) => (
+                        <Badge key={s} variant="outline" className="text-xs">
+                          {s}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4 mt-6">
+                <MiniStat icon={Zap} label="XP" value={profile.xp.toLocaleString()} />
+                <MiniStat icon={Trophy} label="Level" value={profile.level.toString()} />
+                <MiniStat icon={Flame} label="Streak" value={`${profile.streak}d`} />
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-4">
+                <MiniStat icon={Target} label="Challenges Submitted" value={String(stats?.challenges ?? 0)} />
+                <MiniStat icon={Zap} label="Posts" value={String(stats?.posts ?? 0)} />
+                <MiniStat icon={Zap} label="Comments" value={String(stats?.comments ?? 0)} />
+                <MiniStat icon={Zap} label="Likes given" value={String(stats?.likesGiven ?? 0)} />
+                <MiniStat icon={Zap} label="Likes received" value={String(stats?.likesReceived ?? 0)} />
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Edit */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Edit profile</CardTitle>
+                <CardDescription>Update how you appear to the cohort.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <F label="Display name" className="col-span-2">
+                    <Input
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      maxLength={60}
+                    />
+                  </F>
+                  <F label="Role" className="col-span-2">
+                    <Select
+                      value={primaryRole}
+                      onValueChange={(v) => setPrimaryRole(v as typeof primaryRole)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="mentee">Mentee</SelectItem>
+                        <SelectItem value="mentor">Mentor</SelectItem>
+                        <SelectItem value="team_member">Team</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </F>
+                  <F label="Bio" className="col-span-2">
+                    <Textarea
+                      rows={3}
+                      value={bio}
+                      onChange={(e) => setBio(e.target.value)}
+                      maxLength={280}
+                    />
+                  </F>
+                  <F label="College" className="col-span-2">
+                    <Input
+                      value={college}
+                      onChange={(e) => setCollege(e.target.value)}
+                      maxLength={120}
+                    />
+                  </F>
+                  <F label="Course">
+                    <Input value={course} onChange={(e) => setCourse(e.target.value)} maxLength={60} />
+                  </F>
+                  <F label="Branch">
+                    <Input value={branch} onChange={(e) => setBranch(e.target.value)} maxLength={60} />
+                  </F>
+                  <F label="Grad year">
+                    <Input
+                      type="number"
+                      value={gradYear}
+                      onChange={(e) => setGradYear(e.target.value)}
+                    />
+                  </F>
+                  <F label="City">
+                    <Input value={city} onChange={(e) => setCity(e.target.value)} maxLength={60} />
+                  </F>
+                  <F label="State" className="col-span-2">
+                    <Input
+                      value={stateVal}
+                      onChange={(e) => setStateVal(e.target.value)}
+                      maxLength={60}
+                    />
+                  </F>
+                  <F label="LinkedIn URL" className="col-span-2">
+                    <Input
+                      value={linkedin}
+                      onChange={(e) => setLinkedin(e.target.value)}
+                      placeholder="https://linkedin.com/in/…"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Must be a linkedin.com URL</p>
+                  </F>
+                  <F label="GitHub URL" className="col-span-2">
+                    <Input
+                      value={github}
+                      onChange={(e) => setGithub(e.target.value)}
+                      placeholder="https://github.com/…"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Must be a github.com URL</p>
+                  </F>
+                  <F label="Skills" className="col-span-2">
+                    <div className="flex gap-2">
+                      <Input
+                        list="profile-skills-list"
+                        value={skillInput}
+                        onChange={(e) => setSkillInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            addSkill();
+                          }
+                        }}
+                        placeholder="Pick or type a skill…"
+                      />
+                      <datalist id="profile-skills-list">
+                        {SKILL_OPTIONS.map((s) => (
+                          <option key={s} value={s} />
+                        ))}
+                      </datalist>
+                      <Button type="button" variant="secondary" onClick={addSkill}>
+                        Add
+                      </Button>
+                    </div>
+                    {skills.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {skills.map((s) => (
+                          <Badge key={s} variant="secondary" className="gap-1">
+                            {s}
+                            <button
+                              type="button"
+                              onClick={() => setSkills(skills.filter((x) => x !== s))}
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </F>
+                </div>
+                <Button onClick={() => save.mutate()} disabled={save.isPending}>
+                  {save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save changes
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Badges */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Award className="h-5 w-5 text-accent" /> Badges
+                </CardTitle>
+                <CardDescription>Earn badges by contributing to the cohort.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-3">
+                  {BADGES.map((b) => (
+                    <div
+                      key={b.id}
+                      className={`rounded-lg border p-3 ${b.earned ? "bg-accent/10 border-accent/30" : "bg-muted/30 opacity-60"}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={`grid h-8 w-8 place-items-center rounded-lg ${b.earned ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground"}`}
+                        >
+                          <Award className="h-4 w-4" />
+                        </div>
+                        <p className="text-sm font-semibold">{b.name}</p>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">{b.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="mentor" className="mt-0 focus-visible:outline-none">
+          <MentorProfileView
+            userId={user.id}
+            userEmail={user.email || ""}
+            profile={profile}
+            onAvatarUpload={handleAvatar}
+            uploadingAvatar={uploading}
+            onProfileUpdated={() => qc.invalidateQueries({ queryKey: ["profile", user.id] })}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
