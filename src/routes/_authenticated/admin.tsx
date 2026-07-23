@@ -667,7 +667,7 @@ function SubmissionsPanel() {
       const { data, error } = await supabase
         .from("challenge_submissions")
         .select(
-          "id, status, solution_url, notes, created_at, user_id, screenshot_url, feedback, challenges(title, xp_reward), profiles!challenge_submissions_user_profile_fkey(display_name)",
+          "id, status, solution_url, notes, created_at, user_id, screenshot_url, screenshot_urls, feedback, challenges(title, xp_reward), profiles!challenge_submissions_user_profile_fkey(display_name)",
         )
         .order("created_at", { ascending: false })
         .limit(100);
@@ -736,23 +736,26 @@ function SubmissionsPanel() {
                   {s.solution_url}
                 </a>
               )}
-              {s.screenshot_url && (
-                <div className="mt-2">
-                  <a
-                    href={s.screenshot_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-block border rounded hover:opacity-90 transition max-w-[200px]"
-                  >
-                    <img
-                      src={s.screenshot_url}
-                      alt="Challenge screenshot"
-                      className="max-h-24 object-contain rounded"
-                    />
-                    <span className="text-[10px] text-muted-foreground block text-center py-0.5 border-t bg-muted/20">
-                      View full screenshot
-                    </span>
-                  </a>
+              {(s.screenshot_urls?.length > 0 ? s.screenshot_urls : s.screenshot_url ? [s.screenshot_url] : []).length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {(s.screenshot_urls?.length > 0 ? s.screenshot_urls : [s.screenshot_url]).map((shot: string, i: number) => (
+                    <a
+                      key={shot + i}
+                      href={shot}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-block border rounded hover:opacity-90 transition max-w-[200px]"
+                    >
+                      <img
+                        src={shot}
+                        alt={`Challenge screenshot ${i + 1}`}
+                        className="max-h-24 object-contain rounded"
+                      />
+                      <span className="text-[10px] text-muted-foreground block text-center py-0.5 border-t bg-muted/20">
+                        View full screenshot
+                      </span>
+                    </a>
+                  ))}
                 </div>
               )}
               {s.notes && (

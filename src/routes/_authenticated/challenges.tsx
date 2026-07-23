@@ -101,42 +101,53 @@ function ChallengeCard({ c, submission }: { c: any; submission: any }) {
   const [open, setOpen] = useState(false);
   const [url, setUrl] = useState(submission?.solution_url ?? "");
   const [notes, setNotes] = useState(submission?.notes ?? "");
-  const [screenshotUrl, setScreenshotUrl] = useState(submission?.screenshot_url ?? "");
+  const [screenshotUrls, setScreenshotUrls] = useState<string[]>(submission?.screenshot_urls ?? []);
   const [uploading, setUploading] = useState(false);
+  const MAX_SCREENSHOTS = 4;
 
   useEffect(() => {
     if (submission) {
       setUrl(submission.solution_url ?? "");
       setNotes(submission.notes ?? "");
-      setScreenshotUrl(submission.screenshot_url ?? "");
+      setScreenshotUrls(submission.screenshot_urls ?? (submission.screenshot_url ? [submission.screenshot_url] : []));
     } else {
       setUrl("");
       setNotes("");
-      setScreenshotUrl("");
+      setScreenshotUrls([]);
     }
   }, [submission]);
 
-  async function handleScreenshot(file: File) {
-    if (file.size > 5 * 1024 * 1024) return toast.error("Screenshot must be under 5MB");
+  async function handleScreenshots(files: FileList) {
+    const remaining = MAX_SCREENSHOTS - screenshotUrls.length;
+    if (remaining <= 0) return toast.error(`You can upload up to ${MAX_SCREENSHOTS} screenshots`);
+    const toUpload = Array.from(files).slice(0, remaining);
     setUploading(true);
     try {
-      const ext = file.name.split(".").pop() || "png";
-      const path = `${user.id}/challenge-${c.id}-${Date.now()}.${ext}`;
-      const up = await supabase.storage
-        .from("challenge-screenshots")
-        .upload(path, file, { upsert: false });
-      if (up.error) throw up.error;
-      const signed = await supabase.storage
-        .from("challenge-screenshots")
-        .createSignedUrl(path, 60 * 60 * 24 * 365);
-      if (signed.error) throw signed.error;
-      setScreenshotUrl(signed.data.signedUrl);
-      toast.success("Screenshot uploaded");
+      for (const file of toUpload) {
+        if (file.size > 5 * 1024 * 1024) {
+          toast.error(`${file.name} is over 5MB, skipped`);
+          continue;
+        }
+        const ext = file.name.split(".").pop() || "png";
+        const path = `${user.id}/challenge-${c.id}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`;
+        const up = await supabase.storage.from("challenge-screenshots").upload(path, file, { upsert: false });
+        if (up.error) throw up.error;
+        const signed = await supabase.storage
+          .from("challenge-screenshots")
+          .createSignedUrl(path, 60 * 60 * 24 * 365);
+        if (signed.error) throw signed.error;
+        setScreenshotUrls((prev) => [...prev, signed.data.signedUrl]);
+      }
+      toast.success("Screenshot(s) uploaded");
     } catch (e) {
       toast.error("Upload failed", { description: (e as Error).message });
     } finally {
       setUploading(false);
     }
+  }
+
+  function removeScreenshot(urlToRemove: string) {
+    setScreenshotUrls((prev) => prev.filter((u) => u !== urlToRemove));
   }
 
   const submit = useMutation({
@@ -152,7 +163,8 @@ function ChallengeCard({ c, submission }: { c: any; submission: any }) {
           .update({
             solution_url: trimmedUrl || null,
             notes: notes.trim() || null,
-            screenshot_url: screenshotUrl || null,
+            screenshot_urls: screenshotUrls,
+            screenshot_url: screenshotUrls[0] || null,
             status: "submitted",
           })
           .eq("id", submission.id);
@@ -163,7 +175,8 @@ function ChallengeCard({ c, submission }: { c: any; submission: any }) {
           user_id: user.id,
           solution_url: trimmedUrl || null,
           notes: notes.trim() || null,
-          screenshot_url: screenshotUrl || null,
+          screenshot_urls: screenshotUrls,
+          screenshot_url: screenshotUrls[0] || null,
           status: "submitted",
         });
         if (error) throw error;
@@ -247,42 +260,47 @@ function ChallengeCard({ c, submission }: { c: any; submission: any }) {
                         <p className="text-xs text-muted-foreground">Must start with http:// or https://</p>
                       </div>
                       <div className="space-y-2">
-                        <Label>Screenshot (e.g. LeetCode confirmation)</Label>
+                        <Label>Screenshots (up to {MAX_SCREENSHOTS}, e.g. LeetCode confirmation)</Label>
                         <div className="flex items-center gap-2">
-                          <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary cursor-pointer border rounded-md px-3 py-2 bg-muted/20">
+                          <label
+                            className={`inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary cursor-pointer border rounded-md px-3 py-2 bg-muted/20 ${
+                              screenshotUrls.length >= MAX_SCREENSHOTS ? "opacity-50 pointer-events-none" : ""
+                            }`}
+                          >
                             {uploading ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
                             ) : (
                               <ImagePlus className="h-4 w-4" />
                             )}
-                            Choose Screenshot
+                            Add Screenshot{screenshotUrls.length > 0 ? "s" : ""}
                             <input
                               type="file"
                               accept="image/*"
+                              multiple
                               className="hidden"
-                              onChange={(e) =>
-                                e.target.files?.[0] && handleScreenshot(e.target.files[0])
-                              }
-                              disabled={uploading}
+                              onChange={(e) => e.target.files && handleScreenshots(e.target.files)}
+                              disabled={uploading || screenshotUrls.length >= MAX_SCREENSHOTS}
                             />
                           </label>
-                          {screenshotUrl && (
-                            <span className="text-xs text-green-600 font-medium">Uploaded ✓</span>
+                          {screenshotUrls.length > 0 && (
+                            <span className="text-xs text-green-600 font-medium">
+                              {screenshotUrls.length}/{MAX_SCREENSHOTS} uploaded ✓
+                            </span>
                           )}
                         </div>
-                        {screenshotUrl && (
-                          <div className="relative mt-2 w-full max-h-40 overflow-hidden rounded-md border">
-                            <img
-                              src={screenshotUrl}
-                              alt="Screenshot preview"
-                              className="object-contain w-full h-full max-h-40"
-                            />
-                            <button
-                              onClick={() => setScreenshotUrl("")}
-                              className="absolute top-1 right-1 bg-black/60 hover:bg-black/80 text-white rounded-full p-1"
-                            >
-                              <X className="h-3.5 w-3.5" />
-                            </button>
+                        {screenshotUrls.length > 0 && (
+                          <div className="grid grid-cols-2 gap-2 mt-2">
+                            {screenshotUrls.map((shot) => (
+                              <div key={shot} className="relative w-full h-24 overflow-hidden rounded-md border">
+                                <img src={shot} alt="Screenshot preview" className="object-cover w-full h-full" />
+                                <button
+                                  onClick={() => removeScreenshot(shot)}
+                                  className="absolute top-1 right-1 bg-black/60 hover:bg-black/80 text-white rounded-full p-1"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            ))}
                           </div>
                         )}
                       </div>
@@ -335,42 +353,47 @@ function ChallengeCard({ c, submission }: { c: any; submission: any }) {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Screenshot (e.g. LeetCode confirmation)</Label>
+                    <Label>Screenshots (up to {MAX_SCREENSHOTS}, e.g. LeetCode confirmation)</Label>
                     <div className="flex items-center gap-2">
-                      <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary cursor-pointer border rounded-md px-3 py-2 bg-muted/20">
+                      <label
+                        className={`inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary cursor-pointer border rounded-md px-3 py-2 bg-muted/20 ${
+                          screenshotUrls.length >= MAX_SCREENSHOTS ? "opacity-50 pointer-events-none" : ""
+                        }`}
+                      >
                         {uploading ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
                           <ImagePlus className="h-4 w-4" />
                         )}
-                        Choose Screenshot
+                        Add Screenshot{screenshotUrls.length > 0 ? "s" : ""}
                         <input
                           type="file"
                           accept="image/*"
+                          multiple
                           className="hidden"
-                          onChange={(e) =>
-                            e.target.files?.[0] && handleScreenshot(e.target.files[0])
-                          }
-                          disabled={uploading}
+                          onChange={(e) => e.target.files && handleScreenshots(e.target.files)}
+                          disabled={uploading || screenshotUrls.length >= MAX_SCREENSHOTS}
                         />
                       </label>
-                      {screenshotUrl && (
-                        <span className="text-xs text-green-600 font-medium">Uploaded ✓</span>
+                      {screenshotUrls.length > 0 && (
+                        <span className="text-xs text-green-600 font-medium">
+                          {screenshotUrls.length}/{MAX_SCREENSHOTS} uploaded ✓
+                        </span>
                       )}
                     </div>
-                    {screenshotUrl && (
-                      <div className="relative mt-2 w-full max-h-40 overflow-hidden rounded-md border">
-                        <img
-                          src={screenshotUrl}
-                          alt="Screenshot preview"
-                          className="object-contain w-full h-full max-h-40"
-                        />
-                        <button
-                          onClick={() => setScreenshotUrl("")}
-                          className="absolute top-1 right-1 bg-black/60 hover:bg-black/80 text-white rounded-full p-1"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
+                    {screenshotUrls.length > 0 && (
+                      <div className="grid grid-cols-2 gap-2 mt-2">
+                        {screenshotUrls.map((shot) => (
+                          <div key={shot} className="relative w-full h-24 overflow-hidden rounded-md border">
+                            <img src={shot} alt="Screenshot preview" className="object-cover w-full h-full" />
+                            <button
+                              onClick={() => removeScreenshot(shot)}
+                              className="absolute top-1 right-1 bg-black/60 hover:bg-black/80 text-white rounded-full p-1"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
