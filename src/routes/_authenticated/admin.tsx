@@ -17,6 +17,14 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
   Loader2,
   CheckCircle2,
   XCircle,
@@ -38,6 +46,10 @@ import {
   Video,
   Calendar,
   Play,
+  Pencil,
+  Upload,
+  ImagePlus,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -1854,10 +1866,40 @@ function FeedbackPanel() {
   );
 }
 
+// ─── Helper function for uploading image files to Supabase Storage ───
+async function uploadImageFile(file: File, folder: string = "events"): Promise<string> {
+  if (file.size > 5 * 1024 * 1024) throw new Error("Image file size must be under 5MB");
+  const ext = file.name.split(".").pop() || "png";
+  const path = `${folder}/${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${ext}`;
+
+  let bucket = "post-images";
+  let uploadRes = await supabase.storage.from(bucket).upload(path, file, { upsert: true });
+  if (uploadRes.error) {
+    bucket = "avatars";
+    uploadRes = await supabase.storage.from(bucket).upload(path, file, { upsert: true });
+    if (uploadRes.error) throw uploadRes.error;
+  }
+
+  const { data: signedData } = await supabase.storage.from(bucket).createSignedUrl(path, 60 * 60 * 24 * 365 * 10);
+  if (signedData?.signedUrl) return signedData.signedUrl;
+
+  return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
+}
+
+function toDatetimeLocalString(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 // ─── Masterclasses Management Panel ───
 // ─── Events & Masterclasses Management Panel ───
 function EventsPanel() {
   const qc = useQueryClient();
+
+  // Create form state
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [eventType, setEventType] = useState<"masterclass" | "event" | "workshop" | "deadline">("masterclass");
@@ -1871,6 +1913,26 @@ function EventsPanel() {
   const [speakerBio, setSpeakerBio] = useState("");
   const [speakerAvatarUrl, setSpeakerAvatarUrl] = useState("");
   const [busy, setBusy] = useState(false);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
+  const [uploadingSpeakerAvatar, setUploadingSpeakerAvatar] = useState(false);
+
+  // Edit dialog state
+  const [editingEvent, setEditingEvent] = useState<any | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editEventType, setEditEventType] = useState<"masterclass" | "event" | "workshop" | "deadline">("masterclass");
+  const [editScheduledAt, setEditScheduledAt] = useState("");
+  const [editDurationMinutes, setEditDurationMinutes] = useState("");
+  const [editMeetingLink, setEditMeetingLink] = useState("");
+  const [editBannerImageUrl, setEditBannerImageUrl] = useState("");
+  const [editSpeakerName, setEditSpeakerName] = useState("");
+  const [editSpeakerDesignation, setEditSpeakerDesignation] = useState("");
+  const [editSpeakerLinkedin, setEditSpeakerLinkedin] = useState("");
+  const [editSpeakerBio, setEditSpeakerBio] = useState("");
+  const [editSpeakerAvatarUrl, setEditSpeakerAvatarUrl] = useState("");
+  const [editBusy, setEditBusy] = useState(false);
+  const [uploadingEditBanner, setUploadingEditBanner] = useState(false);
+  const [uploadingEditSpeakerAvatar, setUploadingEditSpeakerAvatar] = useState(false);
 
   const { data: events, isLoading } = useQuery({
     queryKey: ["admin", "events"],
@@ -1883,6 +1945,22 @@ function EventsPanel() {
       return data;
     },
   });
+
+  const openEditModal = (ev: any) => {
+    setEditingEvent(ev);
+    setEditTitle(ev.title || "");
+    setEditDescription(ev.description || "");
+    setEditEventType(ev.event_type || "masterclass");
+    setEditScheduledAt(toDatetimeLocalString(ev.scheduled_at));
+    setEditDurationMinutes(ev.duration_minutes ? String(ev.duration_minutes) : "");
+    setEditMeetingLink(ev.meeting_link || "");
+    setEditBannerImageUrl(ev.banner_image_url || "");
+    setEditSpeakerName(ev.speaker_name || "");
+    setEditSpeakerDesignation(ev.speaker_designation || "");
+    setEditSpeakerLinkedin(ev.speaker_linkedin || "");
+    setEditSpeakerBio(ev.speaker_bio || "");
+    setEditSpeakerAvatarUrl(ev.speaker_avatar_url || "");
+  };
 
   const create = useMutation({
     mutationFn: async () => {
@@ -1925,9 +2003,50 @@ function EventsPanel() {
       setSpeakerBio("");
       setSpeakerAvatarUrl("");
       qc.invalidateQueries({ queryKey: ["admin", "events"] });
+      qc.invalidateQueries({ queryKey: ["events"] });
     },
     onError: (e: Error) => toast.error(e.message),
     onSettled: () => setBusy(false),
+  });
+
+  const update = useMutation({
+    mutationFn: async () => {
+      if (!editingEvent) return;
+      if (!editTitle.trim() || !editScheduledAt) {
+        throw new Error("Title and Date & Time are required.");
+      }
+      setEditBusy(true);
+      const payload: Record<string, any> = {
+        title: editTitle.trim(),
+        description: editDescription.trim() || null,
+        event_type: editEventType,
+        scheduled_at: new Date(editScheduledAt).toISOString(),
+        duration_minutes: editDurationMinutes ? Number(editDurationMinutes) : null,
+        meeting_link: editMeetingLink.trim() || null,
+        banner_image_url: editBannerImageUrl.trim() || null,
+        speaker_name: editSpeakerName.trim() || null,
+        speaker_designation: editSpeakerDesignation.trim() || null,
+        speaker_linkedin: editSpeakerLinkedin.trim() || null,
+        speaker_bio: editSpeakerBio.trim() || null,
+        speaker_avatar_url: editSpeakerAvatarUrl.trim() || null,
+      };
+
+      const { error } = await (supabase as any)
+        .from("events")
+        .update(payload)
+        .eq("id", editingEvent.id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Event updated successfully!");
+      setEditingEvent(null);
+      qc.invalidateQueries({ queryKey: ["admin", "events"] });
+      qc.invalidateQueries({ queryKey: ["events"] });
+      qc.invalidateQueries({ queryKey: ["eventDetail"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+    onSettled: () => setEditBusy(false),
   });
 
   const remove = useMutation({
@@ -1938,6 +2057,7 @@ function EventsPanel() {
     onSuccess: () => {
       toast.success("Event deleted");
       qc.invalidateQueries({ queryKey: ["admin", "events"] });
+      qc.invalidateQueries({ queryKey: ["events"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -1976,13 +2096,69 @@ function EventsPanel() {
               <Label>Duration (minutes)</Label>
               <Input type="number" value={durationMinutes} onChange={(e) => setDurationMinutes(e.target.value)} placeholder="60" />
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 md:col-span-2">
               <Label>Meeting / Join Link</Label>
               <Input type="url" value={meetingLink} onChange={(e) => setMeetingLink(e.target.value)} placeholder="https://meet.google.com/..." />
             </div>
-            <div className="space-y-1.5">
-              <Label>Poster / Banner Image URL (Optional)</Label>
-              <Input type="url" value={bannerImageUrl} onChange={(e) => setBannerImageUrl(e.target.value)} placeholder="https://..." />
+
+            {/* Banner Thumbnail Upload */}
+            <div className="space-y-1.5 md:col-span-2">
+              <Label>Poster / Banner Image (Thumbnail)</Label>
+              <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                {bannerImageUrl ? (
+                  <div className="relative group w-28 h-16 rounded-md overflow-hidden border shrink-0 bg-muted">
+                    <img src={bannerImageUrl} alt="Thumbnail preview" className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setBannerImageUrl("")}
+                      className="absolute top-1 right-1 bg-black/70 text-white rounded-full p-1 hover:bg-red-600 transition"
+                      title="Remove image"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="w-28 h-16 rounded-md border border-dashed flex flex-col items-center justify-center text-muted-foreground text-xs shrink-0 bg-muted/20">
+                    <ImagePlus className="h-5 w-5 mb-0.5 opacity-50" /> No image
+                  </div>
+                )}
+                <div className="flex-1 space-y-1.5 w-full">
+                  <div className="flex gap-2">
+                    <Input
+                      type="url"
+                      value={bannerImageUrl}
+                      onChange={(e) => setBannerImageUrl(e.target.value)}
+                      placeholder="Paste image URL or upload file..."
+                    />
+                    <label className="cursor-pointer">
+                      <Button type="button" variant="outline" size="sm" className="gap-1.5 shrink-0" disabled={uploadingBanner}>
+                        {uploadingBanner ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                        Upload
+                      </Button>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          setUploadingBanner(true);
+                          try {
+                            const url = await uploadImageFile(file, "banners");
+                            setBannerImageUrl(url);
+                            toast.success("Thumbnail uploaded!");
+                          } catch (err: any) {
+                            toast.error(err.message || "Failed to upload image");
+                          } finally {
+                            setUploadingBanner(false);
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">Upload masterclass poster/banner (PNG, JPG, WebP up to 5MB).</p>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -2000,15 +2176,72 @@ function EventsPanel() {
                 <Label>Speaker Designation / Role</Label>
                 <Input value={speakerDesignation} onChange={(e) => setSpeakerDesignation(e.target.value)} placeholder="E.g. Senior Tech Lead at Google" />
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 md:col-span-2">
                 <Label>Speaker LinkedIn URL</Label>
                 <Input type="url" value={speakerLinkedin} onChange={(e) => setSpeakerLinkedin(e.target.value)} placeholder="https://linkedin.com/in/..." />
               </div>
-              <div className="space-y-1.5">
-                <Label>Speaker Profile Picture / Photo URL</Label>
-                <Input type="url" value={speakerAvatarUrl} onChange={(e) => setSpeakerAvatarUrl(e.target.value)} placeholder="https://..." />
+
+              {/* Speaker Profile Picture Upload */}
+              <div className="space-y-1.5 md:col-span-2">
+                <Label>Speaker Profile Picture / Photo</Label>
+                <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                  {speakerAvatarUrl ? (
+                    <div className="relative group w-14 h-14 rounded-full overflow-hidden border shrink-0 bg-muted">
+                      <img src={speakerAvatarUrl} alt="Speaker avatar" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setSpeakerAvatarUrl("")}
+                        className="absolute top-0 right-0 bg-black/70 text-white rounded-full p-0.5 hover:bg-red-600 transition"
+                        title="Remove photo"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="w-14 h-14 rounded-full border border-dashed flex items-center justify-center text-muted-foreground text-xs shrink-0 bg-muted/20">
+                      <Users className="h-5 w-5 opacity-50" />
+                    </div>
+                  )}
+                  <div className="flex-1 space-y-1.5 w-full">
+                    <div className="flex gap-2">
+                      <Input
+                        type="url"
+                        value={speakerAvatarUrl}
+                        onChange={(e) => setSpeakerAvatarUrl(e.target.value)}
+                        placeholder="Paste photo URL or upload photo..."
+                      />
+                      <label className="cursor-pointer">
+                        <Button type="button" variant="outline" size="sm" className="gap-1.5 shrink-0" disabled={uploadingSpeakerAvatar}>
+                          {uploadingSpeakerAvatar ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                          Upload
+                        </Button>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            setUploadingSpeakerAvatar(true);
+                            try {
+                              const url = await uploadImageFile(file, "speakers");
+                              setSpeakerAvatarUrl(url);
+                              toast.success("Speaker photo uploaded!");
+                            } catch (err: any) {
+                              toast.error(err.message || "Failed to upload photo");
+                            } finally {
+                              setUploadingSpeakerAvatar(false);
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">Upload speaker photo or avatar (up to 5MB).</p>
+                  </div>
+                </div>
               </div>
             </div>
+
             <div className="space-y-1.5">
               <Label>Speaker Bio</Label>
               <Textarea rows={2} value={speakerBio} onChange={(e) => setSpeakerBio(e.target.value)} placeholder="Brief description about the speaker's background and achievements..." />
@@ -2025,6 +2258,7 @@ function EventsPanel() {
         </CardContent>
       </Card>
 
+      {/* All Events List */}
       <Card>
         <CardHeader>
           <CardTitle>All Events ({(events ?? []).length})</CardTitle>
@@ -2047,17 +2281,238 @@ function EventsPanel() {
                       {new Date(ev.scheduled_at).toLocaleString(undefined, {
                         weekday: "short", day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit",
                       })}
+                      {ev.speaker_name ? ` · Speaker: ${ev.speaker_name}` : ""}
                     </p>
                   </div>
-                  <Button size="sm" variant="ghost" onClick={() => { if (confirm("Delete this event?")) remove.mutate(ev.id); }} className="hover:bg-destructive/10 text-muted-foreground hover:text-destructive shrink-0">
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => openEditModal(ev)}
+                      className="hover:bg-primary/10 text-muted-foreground hover:text-primary"
+                      title="Edit event"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => { if (confirm("Delete this event?")) remove.mutate(ev.id); }}
+                      className="hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                      title="Delete event"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Event Modal */}
+      <Dialog open={!!editingEvent} onOpenChange={(open) => { if (!open) setEditingEvent(null); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Event / Masterclass</DialogTitle>
+            <DialogDescription>Update the event details, meeting link, thumbnail, and speaker profile.</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label>Title *</Label>
+                <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="Title" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Type *</Label>
+                <Select value={editEventType} onValueChange={(v: any) => setEditEventType(v)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="masterclass">Masterclass</SelectItem>
+                    <SelectItem value="event">Event</SelectItem>
+                    <SelectItem value="workshop">Workshop</SelectItem>
+                    <SelectItem value="deadline">Deadline</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Date & Time *</Label>
+                <Input type="datetime-local" value={editScheduledAt} onChange={(e) => setEditScheduledAt(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Duration (minutes)</Label>
+                <Input type="number" value={editDurationMinutes} onChange={(e) => setEditDurationMinutes(e.target.value)} placeholder="60" />
+              </div>
+              <div className="space-y-1.5 md:col-span-2">
+                <Label>Meeting / Join Link</Label>
+                <Input type="url" value={editMeetingLink} onChange={(e) => setEditMeetingLink(e.target.value)} placeholder="https://meet.google.com/..." />
+              </div>
+
+              {/* Edit Banner Thumbnail Upload */}
+              <div className="space-y-1.5 md:col-span-2">
+                <Label>Poster / Banner Image (Thumbnail)</Label>
+                <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                  {editBannerImageUrl ? (
+                    <div className="relative group w-28 h-16 rounded-md overflow-hidden border shrink-0 bg-muted">
+                      <img src={editBannerImageUrl} alt="Thumbnail preview" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setEditBannerImageUrl("")}
+                        className="absolute top-1 right-1 bg-black/70 text-white rounded-full p-1 hover:bg-red-600 transition"
+                        title="Remove image"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="w-28 h-16 rounded-md border border-dashed flex flex-col items-center justify-center text-muted-foreground text-xs shrink-0 bg-muted/20">
+                      <ImagePlus className="h-5 w-5 mb-0.5 opacity-50" /> No image
+                    </div>
+                  )}
+                  <div className="flex-1 space-y-1.5 w-full">
+                    <div className="flex gap-2">
+                      <Input
+                        type="url"
+                        value={editBannerImageUrl}
+                        onChange={(e) => setEditBannerImageUrl(e.target.value)}
+                        placeholder="Paste image URL or upload file..."
+                      />
+                      <label className="cursor-pointer">
+                        <Button type="button" variant="outline" size="sm" className="gap-1.5 shrink-0" disabled={uploadingEditBanner}>
+                          {uploadingEditBanner ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                          Upload
+                        </Button>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            setUploadingEditBanner(true);
+                            try {
+                              const url = await uploadImageFile(file, "banners");
+                              setEditBannerImageUrl(url);
+                              toast.success("Thumbnail uploaded!");
+                            } catch (err: any) {
+                              toast.error(err.message || "Failed to upload image");
+                            } finally {
+                              setUploadingEditBanner(false);
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Edit Speaker Details Section */}
+            <div className="border-t pt-4 space-y-4">
+              <h3 className="font-semibold text-sm text-foreground flex items-center gap-2">
+                <Users className="h-4 w-4 text-primary" /> Speaker Details
+              </h3>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label>Speaker Name</Label>
+                  <Input value={editSpeakerName} onChange={(e) => setEditSpeakerName(e.target.value)} placeholder="Speaker name" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Speaker Designation / Role</Label>
+                  <Input value={editSpeakerDesignation} onChange={(e) => setEditSpeakerDesignation(e.target.value)} placeholder="Designation" />
+                </div>
+                <div className="space-y-1.5 md:col-span-2">
+                  <Label>Speaker LinkedIn URL</Label>
+                  <Input type="url" value={editSpeakerLinkedin} onChange={(e) => setEditSpeakerLinkedin(e.target.value)} placeholder="https://linkedin.com/in/..." />
+                </div>
+
+                {/* Edit Speaker Profile Picture Upload */}
+                <div className="space-y-1.5 md:col-span-2">
+                  <Label>Speaker Profile Picture / Photo</Label>
+                  <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                    {editSpeakerAvatarUrl ? (
+                      <div className="relative group w-14 h-14 rounded-full overflow-hidden border shrink-0 bg-muted">
+                        <img src={editSpeakerAvatarUrl} alt="Speaker avatar" className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => setEditSpeakerAvatarUrl("")}
+                          className="absolute top-0 right-0 bg-black/70 text-white rounded-full p-0.5 hover:bg-red-600 transition"
+                          title="Remove photo"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="w-14 h-14 rounded-full border border-dashed flex items-center justify-center text-muted-foreground text-xs shrink-0 bg-muted/20">
+                        <Users className="h-5 w-5 opacity-50" />
+                      </div>
+                    )}
+                    <div className="flex-1 space-y-1.5 w-full">
+                      <div className="flex gap-2">
+                        <Input
+                          type="url"
+                          value={editSpeakerAvatarUrl}
+                          onChange={(e) => setEditSpeakerAvatarUrl(e.target.value)}
+                          placeholder="Paste photo URL or upload photo..."
+                        />
+                        <label className="cursor-pointer">
+                          <Button type="button" variant="outline" size="sm" className="gap-1.5 shrink-0" disabled={uploadingEditSpeakerAvatar}>
+                            {uploadingEditSpeakerAvatar ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                            Upload
+                          </Button>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              setUploadingEditSpeakerAvatar(true);
+                              try {
+                                const url = await uploadImageFile(file, "speakers");
+                                setEditSpeakerAvatarUrl(url);
+                                toast.success("Speaker photo uploaded!");
+                              } catch (err: any) {
+                                toast.error(err.message || "Failed to upload photo");
+                              } finally {
+                                setUploadingEditSpeakerAvatar(false);
+                              }
+                            }}
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Speaker Bio</Label>
+                <Textarea rows={2} value={editSpeakerBio} onChange={(e) => setEditSpeakerBio(e.target.value)} placeholder="Speaker bio..." />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Description</Label>
+              <Textarea rows={3} value={editDescription} onChange={(e) => setEditDescription(e.target.value)} placeholder="Event description..." />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" onClick={() => setEditingEvent(null)}>
+              Cancel
+            </Button>
+            <Button disabled={editBusy} onClick={() => update.mutate()} className="text-white" style={{ background: "var(--gradient-primary)" }}>
+              {editBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
