@@ -58,6 +58,10 @@ function Onboarding() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [primaryRole, setPrimaryRole] = useState<"mentee" | "mentor" | "team_member" | "">("");
+  const [company, setCompany] = useState("");
+  const [jobTitle, setJobTitle] = useState("");
+  const [roleSpecialization, setRoleSpecialization] = useState("");
+  const [availability, setAvailability] = useState("");
   const [guideConfirmed, setGuideConfirmed] = useState(false);
 
   const { data: guides } = useQuery({
@@ -145,9 +149,16 @@ function Onboarding() {
         throw new Error("Username must be 2-30 chars, letters/numbers/underscores only");
       if (!avatarUrl) throw new Error("Please upload a profile photo");
       if (!primaryRole) throw new Error("Please select your role");
-      if (!college.trim()) throw new Error("College is required");
-      if (!branch.trim() || !course.trim()) throw new Error("Course & branch are required");
-      if (!gradYear || isNaN(Number(gradYear))) throw new Error("Graduation year is required");
+
+      if (primaryRole === "mentor") {
+        if (!company.trim()) throw new Error("Company / Organization is required");
+        if (!jobTitle.trim()) throw new Error("Position / Job Title is required");
+      } else {
+        if (!college.trim()) throw new Error("College is required");
+        if (!branch.trim() || !course.trim()) throw new Error("Course & branch are required");
+        if (!gradYear || isNaN(Number(gradYear))) throw new Error("Graduation year is required");
+      }
+
       if (!linkedin.trim()) throw new Error("LinkedIn URL is required");
       if (!/^https?:\/\/(www\.)?linkedin\.com\//i.test(linkedin.trim()))
         throw new Error("Please enter a valid LinkedIn URL (e.g. https://linkedin.com/in/yourname)");
@@ -159,31 +170,79 @@ function Onboarding() {
       if (!bio.trim()) throw new Error("Short bio is required");
       if (skills.length === 0) throw new Error("Please add at least one skill");
       if (!guideConfirmed) throw new Error("Please read and confirm the guide, rules, and code of conduct");
+
+      const profilePayload: Record<string, any> = {
+        display_name: displayName.trim(),
+        username: uname,
+        bio: bio.trim(),
+        city: city.trim(),
+        state: stateVal.trim(),
+        linkedin_url: linkedin.trim(),
+        github_url: github.trim(),
+        skills,
+        avatar_url: avatarUrl,
+        onboarded: true,
+        primary_role: primaryRole,
+      };
+
+      if (primaryRole !== "mentor") {
+        profilePayload.college = college.trim();
+        profilePayload.branch = branch.trim();
+        profilePayload.course = course.trim();
+        profilePayload.graduation_year = Number(gradYear);
+      }
+
       const { error } = await supabase
         .from("profiles")
-        .update({
-          display_name: displayName.trim(),
-          username: uname,
-          bio: bio.trim(),
-          college: college.trim(),
-          city: city.trim(),
-          state: stateVal.trim(),
-          branch: branch.trim(),
-          course: course.trim(),
-          graduation_year: Number(gradYear),
-          linkedin_url: linkedin.trim(),
-          github_url: github.trim(),
-          skills,
-          avatar_url: avatarUrl,
-          onboarded: true,
-          primary_role: primaryRole,
-        })
+        .update(profilePayload)
         .eq("id", user.id);
+
       if (error) {
         if ((error as { code?: string }).code === "23505")
           throw new Error("That username is already taken");
         throw error;
       }
+
+      if (primaryRole === "mentor") {
+        const initialMentorProfile = {
+          displayName: displayName.trim(),
+          title: jobTitle.trim(),
+          company: company.trim(),
+          roleSpecialization: roleSpecialization.trim() || "Tech Mentor",
+          bio: bio.trim(),
+          city: city.trim(),
+          state: stateVal.trim(),
+          domains: skills.length > 0 ? skills.slice(0, 4) : ["Software Engineering"],
+          skills: skills,
+          availability: availability.trim() || "Weekdays & Weekends",
+          experiences: [
+            {
+              id: "exp-1",
+              role: jobTitle.trim(),
+              company: company.trim(),
+              period: "Present",
+              description: bio.trim() || "Mentoring early-career developers.",
+            },
+          ],
+          topics: ["System Design", "Career Guidance", "Code Review"],
+          sessionTypes: [
+            { id: "st-1", title: "1-on-1 Mentorship", duration: "45 mins", description: "Personalized guidance and career roadmap." },
+          ],
+          certifications: [],
+          reviews: [],
+          socials: { linkedin: linkedin.trim(), github: github.trim() },
+          rating: 5.0,
+          totalMentees: 0,
+          sessionsCompleted: 0,
+          responseTime: "< 2 hours",
+        };
+        try {
+          localStorage.setItem(`cohortos_mentor_profile_${user.id}`, JSON.stringify(initialMentorProfile));
+        } catch (err) {
+          console.error("Failed to save mentor profile to localStorage", err);
+        }
+      }
+
       if (!existingConfirmation) {
         const { error: confirmError } = await (supabase as any)
           .from("user_guide_confirmations")
@@ -301,31 +360,73 @@ function Onboarding() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Education</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
-          <Field label="College / University *" className="sm:col-span-2">
-            <Input value={college} onChange={(e) => setCollege(e.target.value)} maxLength={120} />
-          </Field>
-          <Field label="Course *">
-            <Input value={course} onChange={(e) => setCourse(e.target.value)} maxLength={60} />
-          </Field>
-          <Field label="Branch *">
-            <Input value={branch} onChange={(e) => setBranch(e.target.value)} maxLength={60} />
-          </Field>
-          <Field label="Graduation year *">
-            <Input
-              type="number"
-              min={2020}
-              max={2035}
-              value={gradYear}
-              onChange={(e) => setGradYear(e.target.value)}
-            />
-          </Field>
-        </CardContent>
-      </Card>
+      {primaryRole === "mentor" ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Professional Details (Mentor)</CardTitle>
+            <CardDescription>Tell mentees about your current company, role, and position.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <Field label="Company / Organization *">
+              <Input
+                value={company}
+                onChange={(e) => setCompany(e.target.value)}
+                placeholder="e.g. Google, TechCorp"
+                maxLength={70}
+              />
+            </Field>
+            <Field label="Position / Job Title *">
+              <Input
+                value={jobTitle}
+                onChange={(e) => setJobTitle(e.target.value)}
+                placeholder="e.g. Senior Software Engineer"
+                maxLength={70}
+              />
+            </Field>
+            <Field label="Role Specialization / Focus Area" className="sm:col-span-2">
+              <Input
+                value={roleSpecialization}
+                onChange={(e) => setRoleSpecialization(e.target.value)}
+                placeholder="e.g. System Architecture & Frontend Lead"
+                maxLength={100}
+              />
+            </Field>
+            <Field label="Weekly Availability" className="sm:col-span-2">
+              <Input
+                value={availability}
+                onChange={(e) => setAvailability(e.target.value)}
+                placeholder="e.g. Mon, Wed & Fri (6:00 PM – 8:30 PM EST)"
+              />
+            </Field>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle>Education</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <Field label="College / University *" className="sm:col-span-2">
+              <Input value={college} onChange={(e) => setCollege(e.target.value)} maxLength={120} />
+            </Field>
+            <Field label="Course *">
+              <Input value={course} onChange={(e) => setCourse(e.target.value)} maxLength={60} />
+            </Field>
+            <Field label="Branch *">
+              <Input value={branch} onChange={(e) => setBranch(e.target.value)} maxLength={60} />
+            </Field>
+            <Field label="Graduation year *">
+              <Input
+                type="number"
+                min={2020}
+                max={2035}
+                value={gradYear}
+                onChange={(e) => setGradYear(e.target.value)}
+              />
+            </Field>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
