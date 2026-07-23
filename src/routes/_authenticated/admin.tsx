@@ -1,7 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -1877,7 +1877,11 @@ async function uploadImageFile(file: File, folder: string = "events"): Promise<s
   if (uploadRes.error) {
     bucket = "avatars";
     uploadRes = await supabase.storage.from(bucket).upload(path, file, { upsert: true });
-    if (uploadRes.error) throw uploadRes.error;
+    if (uploadRes.error) {
+      bucket = "pod-images";
+      uploadRes = await supabase.storage.from(bucket).upload(path, file, { upsert: true });
+      if (uploadRes.error) throw uploadRes.error;
+    }
   }
 
   const { data: signedData } = await supabase.storage.from(bucket).createSignedUrl(path, 60 * 60 * 24 * 365 * 10);
@@ -1898,6 +1902,12 @@ function toDatetimeLocalString(iso: string | null | undefined): string {
 // ─── Events & Masterclasses Management Panel ───
 function EventsPanel() {
   const qc = useQueryClient();
+
+  // Input refs for file upload buttons
+  const bannerInputRef = useRef<HTMLInputElement>(null);
+  const speakerAvatarInputRef = useRef<HTMLInputElement>(null);
+  const editBannerInputRef = useRef<HTMLInputElement>(null);
+  const editSpeakerAvatarInputRef = useRef<HTMLInputElement>(null);
 
   // Create form state
   const [title, setTitle] = useState("");
@@ -2130,31 +2140,38 @@ function EventsPanel() {
                       onChange={(e) => setBannerImageUrl(e.target.value)}
                       placeholder="Paste image URL or upload file..."
                     />
-                    <label className="cursor-pointer">
-                      <Button type="button" variant="outline" size="sm" className="gap-1.5 shrink-0" disabled={uploadingBanner}>
-                        {uploadingBanner ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                        Upload
-                      </Button>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={async (e) => {
-                          const file = e.target.files?.[0];
-                          if (!file) return;
-                          setUploadingBanner(true);
-                          try {
-                            const url = await uploadImageFile(file, "banners");
-                            setBannerImageUrl(url);
-                            toast.success("Thumbnail uploaded!");
-                          } catch (err: any) {
-                            toast.error(err.message || "Failed to upload image");
-                          } finally {
-                            setUploadingBanner(false);
-                          }
-                        }}
-                      />
-                    </label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 shrink-0"
+                      disabled={uploadingBanner}
+                      onClick={() => bannerInputRef.current?.click()}
+                    >
+                      {uploadingBanner ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                      Upload
+                    </Button>
+                    <input
+                      ref={bannerInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        setUploadingBanner(true);
+                        try {
+                          const url = await uploadImageFile(file, "banners");
+                          setBannerImageUrl(url);
+                          toast.success("Thumbnail uploaded!");
+                        } catch (err: any) {
+                          toast.error(err.message || "Failed to upload image");
+                        } finally {
+                          setUploadingBanner(false);
+                          e.target.value = "";
+                        }
+                      }}
+                    />
                   </div>
                   <p className="text-[11px] text-muted-foreground">Upload masterclass poster/banner (PNG, JPG, WebP up to 5MB).</p>
                 </div>
@@ -2210,31 +2227,38 @@ function EventsPanel() {
                         onChange={(e) => setSpeakerAvatarUrl(e.target.value)}
                         placeholder="Paste photo URL or upload photo..."
                       />
-                      <label className="cursor-pointer">
-                        <Button type="button" variant="outline" size="sm" className="gap-1.5 shrink-0" disabled={uploadingSpeakerAvatar}>
-                          {uploadingSpeakerAvatar ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                          Upload
-                        </Button>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={async (e) => {
-                            const file = e.target.files?.[0];
-                            if (!file) return;
-                            setUploadingSpeakerAvatar(true);
-                            try {
-                              const url = await uploadImageFile(file, "speakers");
-                              setSpeakerAvatarUrl(url);
-                              toast.success("Speaker photo uploaded!");
-                            } catch (err: any) {
-                              toast.error(err.message || "Failed to upload photo");
-                            } finally {
-                              setUploadingSpeakerAvatar(false);
-                            }
-                          }}
-                        />
-                      </label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5 shrink-0"
+                        disabled={uploadingSpeakerAvatar}
+                        onClick={() => speakerAvatarInputRef.current?.click()}
+                      >
+                        {uploadingSpeakerAvatar ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                        Upload
+                      </Button>
+                      <input
+                        ref={speakerAvatarInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          setUploadingSpeakerAvatar(true);
+                          try {
+                            const url = await uploadImageFile(file, "speakers");
+                            setSpeakerAvatarUrl(url);
+                            toast.success("Speaker photo uploaded!");
+                          } catch (err: any) {
+                            toast.error(err.message || "Failed to upload photo");
+                          } finally {
+                            setUploadingSpeakerAvatar(false);
+                            e.target.value = "";
+                          }
+                        }}
+                      />
                     </div>
                     <p className="text-[11px] text-muted-foreground">Upload speaker photo or avatar (up to 5MB).</p>
                   </div>
@@ -2381,31 +2405,38 @@ function EventsPanel() {
                         onChange={(e) => setEditBannerImageUrl(e.target.value)}
                         placeholder="Paste image URL or upload file..."
                       />
-                      <label className="cursor-pointer">
-                        <Button type="button" variant="outline" size="sm" className="gap-1.5 shrink-0" disabled={uploadingEditBanner}>
-                          {uploadingEditBanner ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                          Upload
-                        </Button>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={async (e) => {
-                            const file = e.target.files?.[0];
-                            if (!file) return;
-                            setUploadingEditBanner(true);
-                            try {
-                              const url = await uploadImageFile(file, "banners");
-                              setEditBannerImageUrl(url);
-                              toast.success("Thumbnail uploaded!");
-                            } catch (err: any) {
-                              toast.error(err.message || "Failed to upload image");
-                            } finally {
-                              setUploadingEditBanner(false);
-                            }
-                          }}
-                        />
-                      </label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5 shrink-0"
+                        disabled={uploadingEditBanner}
+                        onClick={() => editBannerInputRef.current?.click()}
+                      >
+                        {uploadingEditBanner ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                        Upload
+                      </Button>
+                      <input
+                        ref={editBannerInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          setUploadingEditBanner(true);
+                          try {
+                            const url = await uploadImageFile(file, "banners");
+                            setEditBannerImageUrl(url);
+                            toast.success("Thumbnail uploaded!");
+                          } catch (err: any) {
+                            toast.error(err.message || "Failed to upload image");
+                          } finally {
+                            setUploadingEditBanner(false);
+                            e.target.value = "";
+                          }
+                        }}
+                      />
                     </div>
                   </div>
                 </div>
@@ -2460,31 +2491,38 @@ function EventsPanel() {
                           onChange={(e) => setEditSpeakerAvatarUrl(e.target.value)}
                           placeholder="Paste photo URL or upload photo..."
                         />
-                        <label className="cursor-pointer">
-                          <Button type="button" variant="outline" size="sm" className="gap-1.5 shrink-0" disabled={uploadingEditSpeakerAvatar}>
-                            {uploadingEditSpeakerAvatar ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                            Upload
-                          </Button>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={async (e) => {
-                              const file = e.target.files?.[0];
-                              if (!file) return;
-                              setUploadingEditSpeakerAvatar(true);
-                              try {
-                                const url = await uploadImageFile(file, "speakers");
-                                setEditSpeakerAvatarUrl(url);
-                                toast.success("Speaker photo uploaded!");
-                              } catch (err: any) {
-                                toast.error(err.message || "Failed to upload photo");
-                              } finally {
-                                setUploadingEditSpeakerAvatar(false);
-                              }
-                            }}
-                          />
-                        </label>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5 shrink-0"
+                          disabled={uploadingEditSpeakerAvatar}
+                          onClick={() => editSpeakerAvatarInputRef.current?.click()}
+                        >
+                          {uploadingEditSpeakerAvatar ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                          Upload
+                        </Button>
+                        <input
+                          ref={editSpeakerAvatarInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            setUploadingEditSpeakerAvatar(true);
+                            try {
+                              const url = await uploadImageFile(file, "speakers");
+                              setEditSpeakerAvatarUrl(url);
+                              toast.success("Speaker photo uploaded!");
+                            } catch (err: any) {
+                              toast.error(err.message || "Failed to upload photo");
+                            } finally {
+                              setUploadingEditSpeakerAvatar(false);
+                              e.target.value = "";
+                            }
+                          }}
+                        />
                       </div>
                     </div>
                   </div>
