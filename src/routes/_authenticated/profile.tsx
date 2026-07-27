@@ -32,7 +32,8 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { MentorProfileView } from "@/components/profile/MentorProfileView";
-
+import { toast } from "sonner";
+import { SKILL_OPTIONS } from "@/lib/skills";
 export const Route = createFileRoute("/_authenticated/profile")({
   component: ProfilePage,
 });
