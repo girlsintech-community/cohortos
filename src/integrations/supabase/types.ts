@@ -1207,6 +1207,15 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_weekly_leaderboard_history: {
+        Args: { _weeks?: number }
+        Returns: {
+          user_id: string
+          week_start: string
+          weekly_rank: number
+          weekly_xp: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

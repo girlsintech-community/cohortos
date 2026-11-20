@@ -10,3 +10,5 @@
 > the editor, so keep the branch in a working state.
 
 <!-- LOVABLE:END -->
+
+- Keep weekly leaderboard aggregation in a SECURITY DEFINER database function rather than exposing owner-scoped XP event rows, so members can compare results without broadening raw-event access.

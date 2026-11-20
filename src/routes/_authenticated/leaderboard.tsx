@@ -3,20 +3,64 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Trophy, Flame, Loader2, Medal, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  CartesianGrid,
+  Line,
+  LineChart as RechartsLineChart,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { ChartLine, Flame, Loader2, ListOrdered, Medal, Search, Trophy } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  formatWeekLabel,
+  getAvailableWeeks,
+  getWeeklyLeaderboardRows,
+  getWeeklyTrendSeries,
+  type WeeklyLeaderboardRecord,
+} from "@/lib/leaderboard-weekly";
 
 export const Route = createFileRoute("/_authenticated/leaderboard")({
+  head: () => ({
+    meta: [
+      { title: "Leaderboard | CohortOS" },
+      {
+        name: "description",
+        content: "View cohort XP standings, weekly leaders, and member rank progress over time.",
+      },
+      { property: "og:title", content: "Leaderboard | CohortOS" },
+      {
+        property: "og:description",
+        content: "View cohort XP standings, weekly leaders, and member rank progress over time.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
   component: LeaderboardPage,
 });
 
 function LeaderboardPage() {
   const { user } = Route.useRouteContext();
   const [q, setQ] = useState("");
-  const { data, isLoading } = useQuery({
+  const [period, setPeriod] = useState<"all-time" | "weekly">("all-time");
+  const [weeklyView, setWeeklyView] = useState<"list" | "graph">("list");
+  const [selectedWeek, setSelectedWeek] = useState("");
+  const { data, isLoading: profilesLoading } = useQuery({
     queryKey: ["leaderboard"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -28,7 +72,7 @@ function LeaderboardPage() {
     },
   });
 
-  const { data: scores } = useQuery({
+  const { data: scores, isLoading: scoresLoading } = useQuery({
     queryKey: ["leaderboardScores"],
     queryFn: async () => {
       const { data, error } = await (supabase as any).rpc("get_leaderboard_scores");
@@ -40,6 +84,17 @@ function LeaderboardPage() {
         project_score: number;
         mentor_score: number;
       }>;
+    },
+  });
+
+  const { data: weeklyHistory, isLoading: weeklyHistoryLoading, isError: weeklyHistoryError } = useQuery({
+    queryKey: ["leaderboardWeeklyHistory"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc("get_weekly_leaderboard_history", {
+        _weeks: 12,
+      });
+      if (error) throw error;
+      return data as WeeklyLeaderboardRecord[];
     },
   });
 
@@ -60,15 +115,52 @@ function LeaderboardPage() {
     projects: rankByScore(filtered, (p) => scoreMap.get(p.id)?.project_score ?? 0),
     mentor: rankByScore(filtered, (p) => scoreMap.get(p.id)?.mentor_score ?? 0),
   };
+  const weekOptions = getAvailableWeeks(weeklyHistory ?? []);
+  const activeWeek = weekOptions.includes(selectedWeek) ? selectedWeek : (weekOptions[0] ?? "");
+  const weeklyRows = getWeeklyLeaderboardRows(weeklyHistory ?? [], data ?? [], activeWeek, q);
+  const trend = getWeeklyTrendSeries(weeklyHistory ?? [], weeklyRows);
+  const chartConfig: ChartConfig = Object.fromEntries(
+    trend.members.map((member, index) => [
+      member.id,
+      {
+        label: member.display_name ?? "Member",
+        color: `var(--chart-${(index % 5) + 1})`,
+      },
+    ]),
+  );
+  const isLoading =
+    profilesLoading || scoresLoading || (period === "weekly" && weeklyHistoryLoading);
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="mx-auto max-w-4xl space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold">Leaderboard 🏆</h1>
           <p className="text-muted-foreground">
-            Showing all {data?.length ?? 0} registered members across the platform.
+            {period === "weekly"
+              ? "Weekly standings reward progress made during each week."
+              : `Showing all ${data?.length ?? 0} registered members across the platform.`}
           </p>
+        </div>
+        <div className="inline-flex w-fit items-center gap-1 rounded-md border bg-card p-1">
+          <Button
+            type="button"
+            size="sm"
+            variant={period === "all-time" ? "default" : "ghost"}
+            aria-pressed={period === "all-time"}
+            onClick={() => setPeriod("all-time")}
+          >
+            All-time
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={period === "weekly" ? "default" : "ghost"}
+            aria-pressed={period === "weekly"}
+            onClick={() => setPeriod("weekly")}
+          >
+            Weekly
+          </Button>
         </div>
       </div>
 
@@ -86,6 +178,74 @@ function LeaderboardPage() {
         <div className="grid place-items-center py-10">
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
         </div>
+      ) : period === "weekly" ? (
+        <section className="space-y-4" aria-label="Weekly leaderboard">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <Select value={activeWeek} onValueChange={setSelectedWeek}>
+              <SelectTrigger className="w-full sm:w-56" aria-label="Choose leaderboard week">
+                <SelectValue placeholder="Choose a week" />
+              </SelectTrigger>
+              <SelectContent>
+                {weekOptions.map((week) => (
+                  <SelectItem key={week} value={week}>
+                    Week of {formatWeekLabel(week)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="inline-flex w-fit items-center gap-1 rounded-md border bg-card p-1">
+              <Button
+                type="button"
+                size="sm"
+                variant={weeklyView === "list" ? "default" : "ghost"}
+                aria-pressed={weeklyView === "list"}
+                onClick={() => setWeeklyView("list")}
+              >
+                <ListOrdered aria-hidden="true" /> List
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={weeklyView === "graph" ? "default" : "ghost"}
+                aria-pressed={weeklyView === "graph"}
+                onClick={() => setWeeklyView("graph")}
+              >
+                <ChartLine aria-hidden="true" /> Graph
+              </Button>
+            </div>
+          </div>
+
+          {weeklyHistoryError ? (
+            <p role="alert" className="py-8 text-center text-sm text-destructive">
+              Weekly leaderboard data could not be loaded. Please try again.
+            </p>
+          ) : weekOptions.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              Weekly results will appear when members earn XP.
+            </p>
+          ) : weeklyView === "list" ? (
+            <Card>
+              <CardHeader className="flex-row items-center justify-between space-y-0 px-4 pb-3 pt-4 sm:px-6">
+                <CardTitle className="text-base">Week of {formatWeekLabel(activeWeek)}</CardTitle>
+                <span className="text-xs text-muted-foreground">
+                  {weeklyRows.length} {weeklyRows.length === 1 ? "member" : "members"} ranked
+                </span>
+              </CardHeader>
+              <CardContent className="p-0">
+                <Board
+                  rows={weeklyRows}
+                  userId={user.id}
+                  metric="weekly"
+                  getScore={(member) => member.weekly_xp ?? 0}
+                  getRank={(member, index) => member.weekly_rank ?? index + 1}
+                  scoreLabel="XP this week"
+                />
+              </CardContent>
+            </Card>
+          ) : (
+            <WeeklyTrendChart members={trend.members} points={trend.points} config={chartConfig} />
+          )}
+        </section>
       ) : (
         <Tabs defaultValue="xp">
           <TabsList className="flex-wrap">
@@ -116,14 +276,9 @@ function LeaderboardPage() {
   );
 }
 
-type Row = {
-  id: string;
-  display_name: string | null;
-  avatar_url: string | null;
-  xp: number;
-  level: number;
-  streak: number;
-  college: string | null;
+type Row = import("@/lib/leaderboard-weekly").LeaderboardMember & {
+  weekly_xp?: number;
+  weekly_rank?: number | null;
 };
 
 function rankByScore(rows: Row[], getScore: (row: Row) => number) {
@@ -135,11 +290,15 @@ function Board({
   userId,
   metric,
   getScore,
+  getRank,
+  scoreLabel = "XP",
 }: {
   rows: Row[];
   userId: string;
   metric: string;
   getScore: (row: Row) => number;
+  getRank?: (row: Row, index: number) => number;
+  scoreLabel?: string;
 }) {
   return (
     <Card>
@@ -148,7 +307,7 @@ function Board({
           <p className="p-6 text-center text-sm text-muted-foreground">No matches.</p>
         ) : (
           rows.map((p, i) => {
-            const rank = i + 1;
+            const rank = getRank ? getRank(p, i) : i + 1;
             const isMe = p.id === userId;
             const initials = (p.display_name || "?").slice(0, 2).toUpperCase();
             const medal = rank === 1 ? "text-yellow-500" : rank === 2 ? "text-gray-400" : rank === 3 ? "text-amber-700" : "";
@@ -175,7 +334,9 @@ function Board({
                   {p.college && <p className="text-xs text-muted-foreground truncate">{p.college}</p>}
                 </div>
                 <div className="text-right">
-                  <p className="font-bold text-primary">{getScore(p).toLocaleString()} XP</p>
+                  <p className="font-bold text-primary">
+                    {getScore(p).toLocaleString()} {scoreLabel}
+                  </p>
                   <p className="text-xs text-muted-foreground inline-flex items-center gap-2">
                     <Trophy className="h-3 w-3" /> L{p.level} <Flame className="h-3 w-3" /> {p.streak}d
                   </p>
@@ -183,6 +344,73 @@ function Board({
               </Link>
             );
           })
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function WeeklyTrendChart({
+  members,
+  points,
+  config,
+}: {
+  members: Row[];
+  points: Array<Record<string, string | number | null>>;
+  config: ChartConfig;
+}) {
+  return (
+    <Card>
+      <CardHeader className="px-4 pb-2 pt-4 sm:px-6">
+        <CardTitle className="text-base">Rank progression for this week’s leaders</CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Weekly rank across the latest {points.length} weeks.
+        </p>
+      </CardHeader>
+      <CardContent className="px-2 pb-4 sm:px-6">
+        {members.length === 0 ? (
+          <p className="py-12 text-center text-sm text-muted-foreground">
+            No members earned XP during this week.
+          </p>
+        ) : (
+          <ChartContainer config={config} className="h-[320px] w-full">
+            <RechartsLineChart data={points} margin={{ top: 12, right: 12, bottom: 0, left: 4 }}>
+              <CartesianGrid vertical={false} />
+              <XAxis dataKey="week_label" tickLine={false} axisLine={false} tickMargin={8} />
+              <YAxis
+                reversed
+                allowDecimals={false}
+                domain={[1, "dataMax"]}
+                tickFormatter={(rank: number) => `#${rank}`}
+                tickLine={false}
+                axisLine={false}
+                width={42}
+              />
+              <ChartTooltip
+                content={
+                  <ChartTooltipContent
+                    labelFormatter={(label) => `Week of ${label}`}
+                    formatter={(value) => (value == null ? "Not ranked" : `#${value}`)}
+                  />
+                }
+              />
+              {members.map((member, index) => (
+                <Line
+                  key={member.id}
+                  type="monotone"
+                  dataKey={member.id}
+                  name={member.id}
+                  stroke={`var(--color-${member.id})`}
+                  strokeWidth={2}
+                  dot={{ r: 3 }}
+                  activeDot={{ r: 5 }}
+                  connectNulls={false}
+                  isAnimationActive={false}
+                  strokeDasharray={index === 0 ? undefined : undefined}
+                />
+              ))}
+            </RechartsLineChart>
+          </ChartContainer>
         )}
       </CardContent>
     </Card>

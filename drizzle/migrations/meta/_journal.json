@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1795183468041,
+      "tag": "0000_weekly_leaderboard_history",
+      "breakpoints": true
+    }
+  ]
+}
